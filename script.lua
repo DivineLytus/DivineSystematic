@@ -221,10 +221,14 @@ end
 
 local function GetClosestPlayerAimbot()
     local Target,ShortestDistance=nil,FOV_Radius
+    local myChar=LocalPlayer2.Character
+    local myHRP=myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
     for _,player in pairs(Players2:GetPlayers()) do
         if player~=LocalPlayer2 and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local hrp=player.Character.HumanoidRootPart
-            local distFromMe=(LocalPlayer2.Character.HumanoidRootPart.Position-hrp.Position).Magnitude
+            local distFromMe=(myHRP.Position-hrp.Position).Magnitude
             if distFromMe<=MaxDistance then
                 local pos,onScreen=Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
@@ -617,22 +621,40 @@ MkToggle(PgFarm,"Fast Attack","Ataque rapido multi-target",7,
     function() FastAttackEnabled=true; StartFastAttack() end,
     function() FastAttackEnabled=false; if FastAttackConnection then FastAttackConnection:Disconnect() end end)
 MkSecHeader(PgFarm,"Frutas",9)
+local function MakeVector(x,y,z)
+    if vector and vector.create then return vector.create(x,y,z) end
+    return Vector3.new(x,y,z)
+end
+
+local function GetFruitRemote(toolName)
+    local char=LocalPlayer2.Character
+    local hrp=char and char:FindFirstChild("HumanoidRootPart")
+    local tool=char and char:FindFirstChild(toolName)
+    local remote=tool and tool:FindFirstChild("LeftClickRemote")
+    return char,hrp,remote
+end
+
+local function GetNearestTargetRoot()
+    local t=GetNearestPlayer()
+    return t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+end
+
 MkToggle(PgFarm,"Pain-Pain","Auto click izquierdo Pain",11,
     function() FruitAttack=true; FruitAttackConn1=task.spawn(function() while FruitAttack do task.wait(0.01)
-        local t=GetNearestPlayer(); if t and t.Character then local a=LocalPlayer2.Character.HumanoidRootPart; local b=t.Character.HumanoidRootPart
-            if a and b then local d=(b.Position-a.Position).Unit; pcall(function() LocalPlayer2.Character:WaitForChild("Pain-Pain"):WaitForChild("LeftClickRemote"):FireServer(vector.create(d.X,0,d.Z),1,true) end) end end end end) end,
+        local _,a,remote=GetFruitRemote("Pain-Pain"); local b=GetNearestTargetRoot()
+        if a and b and remote then local d=(b.Position-a.Position).Unit; pcall(function() remote:FireServer(MakeVector(d.X,0,d.Z),1,true) end) end end end) end,
     function() FruitAttack=false; if FruitAttackConn1 then task.cancel(FruitAttackConn1); FruitAttackConn1=nil end end)
 MkToggle(PgFarm,"Dragon-Dragon","Auto click Dragon",13,
     function() FruitAttack=true; FruitAttackConn12=task.spawn(function() while FruitAttack do task.wait(0.01)
-        local t=GetNearestPlayer(); if t and t.Character then local a=LocalPlayer2.Character.HumanoidRootPart; local b=t.Character.HumanoidRootPart
-            if a and b then local d=(b.Position-a.Position).Unit; pcall(function() LocalPlayer2.Character:WaitForChild("Dragon-Dragon"):WaitForChild("LeftClickRemote"):FireServer(vector.create(d.X,d.Y,d.Z),1) end) end end end end) end,
+        local _,a,remote=GetFruitRemote("Dragon-Dragon"); local b=GetNearestTargetRoot()
+        if a and b and remote then local d=(b.Position-a.Position).Unit; pcall(function() remote:FireServer(MakeVector(d.X,d.Y,d.Z),1) end) end end end) end,
     function() FruitAttack=false; if FruitAttackConn12 then task.cancel(FruitAttackConn12); FruitAttackConn12=nil end end)
 MkToggle(PgFarm,"Kitsune-Kitsune","Auto click Kitsune",15,
     function() FruitAttack=true; FruitAttackConnection=task.spawn(function() while FruitAttack do task.wait(0.001)
-        local t=GetNearestPlayer(); if t and t.Character then local tool=LocalPlayer2.Character:FindFirstChild("Kitsune-Kitsune")
-            if tool then local d=(t.Character.HumanoidRootPart.Position-LocalPlayer2.Character.HumanoidRootPart.Position).Unit
-                pcall(function() tool:WaitForChild("LeftClickRemote"):FireServer(d,1,true) end) end end end end) end,
-    function() FruitAttack=false; if FruitAttackConnection then task.cancel(FruitAttackConnection) end end)
+        local _,a,remote=GetFruitRemote("Kitsune-Kitsune"); local b=GetNearestTargetRoot()
+        if a and b and remote then local d=(b.Position-a.Position).Unit
+            pcall(function() remote:FireServer(d,1,true) end) end end end) end,
+    function() FruitAttack=false; if FruitAttackConnection then task.cancel(FruitAttackConnection); FruitAttackConnection=nil end end)
 MkSecHeader(PgFarm,"Movimiento",17)
 MkToggle(PgFarm,"Infinite Jump","Salta indefinidamente",19,
     function() InfiniteJumpEnabled=true end, function() InfiniteJumpEnabled=false end)
@@ -830,32 +852,32 @@ end)
 local PgVisuals=MakePage("Visuals")
 MkSecHeader(PgVisuals,"Fast Flags",1)
 local FAST_FLAGS={
-  ["DFIntMaxActiveAnimationTracks"]: "0",
-  ["DFIntReplicatorAnimationTrackLimitPerAnimator"]: "-1",
-  ["DFIntAnimationLodFacsDistanceMin"]: "0",
-  ["DFIntAnimationLodFacsDistanceMax"]: "0",
-  ["TextureCompositorActiveJobs"]: "0",
-  ["RenderShadowmapBias"]: "75",
-  ["CSGLevelOfDetailSwitchingDistanceL34"]: "0",
-  ["CSGLevelOfDetailSwitchingDistanceL23"]: "0",
-  ["CSGLevelOfDetailSwitchingDistanceL12"]: "0",
-  ["CSGLevelOfDetailSwitchingDistance"]: "0",
-  ["TerrainArraySliceSize"]: "0",
-  ["PerformanceControlTextureQualityBestUtility"]: "-1",
-  ["RenderUseTextureManager224"]: "False",
-  ["IncludePowerSaverMode"]: "True",
-  ["EnablePowerTraceModule"]: "True",
-  ["DebugForceFSMCPULightCulling"]: "True",
-  ["DoNotSkipMipsBasedOnSystemMemoryPS"]: "True",
-  ["DebugLimitMinTextureResolutionWhenSkipMips"]: "9999999999999999",
-  ["TM2SkipMipsForUnstreamable2"]: "True",
-  ["DebugTextureManagerSkipMips"]: "10",
-  ["TextureQualityOverride"]: "0",
-  ["TextureQualityOverrideEnabled"]: "True",
-  ["DisablePostFx"]: "True",
-  ["TaskSchedulerTargetFps"]: "9999999",
-  ["DebugDisplayFPS"]: "True",
-  ["DebugSkyGray"]: "True",
+  ["DFIntMaxActiveAnimationTracks"] = "0",
+  ["DFIntReplicatorAnimationTrackLimitPerAnimator"] = "-1",
+  ["DFIntAnimationLodFacsDistanceMin"] = "0",
+  ["DFIntAnimationLodFacsDistanceMax"] = "0",
+  ["TextureCompositorActiveJobs"] = "0",
+  ["RenderShadowmapBias"] = "75",
+  ["CSGLevelOfDetailSwitchingDistanceL34"] = "0",
+  ["CSGLevelOfDetailSwitchingDistanceL23"] = "0",
+  ["CSGLevelOfDetailSwitchingDistanceL12"] = "0",
+  ["CSGLevelOfDetailSwitchingDistance"] = "0",
+  ["TerrainArraySliceSize"] = "0",
+  ["PerformanceControlTextureQualityBestUtility"] = "-1",
+  ["RenderUseTextureManager224"] = "False",
+  ["IncludePowerSaverMode"] = "True",
+  ["EnablePowerTraceModule"] = "True",
+  ["DebugForceFSMCPULightCulling"] = "True",
+  ["DoNotSkipMipsBasedOnSystemMemoryPS"] = "True",
+  ["DebugLimitMinTextureResolutionWhenSkipMips"] = "9999999999999999",
+  ["TM2SkipMipsForUnstreamable2"] = "True",
+  ["DebugTextureManagerSkipMips"] = "10",
+  ["TextureQualityOverride"] = "0",
+  ["TextureQualityOverrideEnabled"] = "True",
+  ["DisablePostFx"] = "True",
+  ["TaskSchedulerTargetFps"] = "9999999",
+  ["DebugDisplayFPS"] = "True",
+  ["DebugSkyGray"] = "True",
 }
 local function CleanFlag(z)
     return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString",""):gsub("FLog",""):gsub("^FFlag",""):gsub("^DFint",""):gsub("^FInt","")
