@@ -6,7 +6,7 @@ local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-local HUB_NAME="Divine Systematic"; local HUB_VERSION="v2.0"; local HUB_SUBTITLE="Blox Fruits Edition"
+local HUB_NAME="Divine Systematic"; local HUB_VERSION="v2.1"; local HUB_SUBTITLE="Blox Fruits Edition"
 local LOAD_STEPS={"Iniciando sistema...","Cargando datos...","Verificando conexion...","Preparando funciones...","Listo."}
 local C={BG=Color3.fromRGB(5,5,16),CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,255,80),DIM=Color3.fromRGB(0,160,160)}
 
@@ -560,8 +560,19 @@ DSQLabel.ZIndex=41; DSQLabel.Parent=DSQuick
 local DSQBtn=Instance.new("TextButton"); DSQBtn.Size=UDim2.fromScale(1,1); DSQBtn.BackgroundTransparency=1
 DSQBtn.Text=""; DSQBtn.AutoButtonColor=false; DSQBtn.ZIndex=42; DSQBtn.Parent=DSQuick
 local HUDHidden=false
+local DSQDragging=false; local DSQDragStart=nil; local DSQStartPos=nil; local DSQMoved=false
 DSQBtn.MouseEnter:Connect(function() if not HUDHidden then DSQSt.Color=C2.PINK; DSQLabel.TextColor3=C2.PINK end end)
 DSQBtn.MouseLeave:Connect(function() if not HUDHidden then DSQSt.Color=C2.CYAN; DSQLabel.TextColor3=C2.CYAN end end)
+DSQuick.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        DSQDragging=true; DSQMoved=false; DSQDragStart=i.Position; DSQStartPos=DSQuick.Position
+    end
+end)
+DSQuick.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        DSQDragging=false
+    end
+end)
 
 -- Ventana principal
 local Win=Instance.new("Frame"); Win.Name="Window"; Win.Size=UDim2.new(0,WIN_W,0,WIN_H)
@@ -982,6 +993,11 @@ TB.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseBu
 UIS.InputChanged:Connect(function(i)
     if i.UserInputType~=Enum.UserInputType.MouseMovement and i.UserInputType~=Enum.UserInputType.Touch then return end
     if d2 and dS2 then local dv=i.Position-dS2; Win.Position=UDim2.new(wS2.X.Scale,wS2.X.Offset+dv.X,wS2.Y.Scale,wS2.Y.Offset+dv.Y) end
+    if DSQDragging and DSQDragStart and DSQStartPos then
+        local dv=i.Position-DSQDragStart
+        if dv.Magnitude>4 then DSQMoved=true end
+        DSQuick.Position=UDim2.new(DSQStartPos.X.Scale,DSQStartPos.X.Offset+dv.X,DSQStartPos.Y.Scale,DSQStartPos.Y.Offset+dv.Y)
+    end
 end)
 
 -- Apagado total
@@ -1014,6 +1030,7 @@ end
 
 -- DS toggle HUD
 DSQBtn.MouseButton1Click:Connect(function()
+    if DSQMoved then DSQMoved=false; return end
     HUDHidden=not HUDHidden
     Win.Visible=not HUDHidden; Win.Active=not HUDHidden
     DSQSt.Color=HUDHidden and C2.PINK or C2.CYAN
