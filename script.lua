@@ -6,7 +6,7 @@ local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-local HUB_NAME="Divine Systematic"; local HUB_VERSION="v2.1"; local HUB_SUBTITLE="Blox Fruits Edition"
+local HUB_NAME="Divine Systematic"; local HUB_VERSION="v3"; local HUB_SUBTITLE="Blox Fruits Edition"
 local LOAD_STEPS={"Iniciando sistema...","Cargando datos...","Verificando conexion...","Preparando funciones...","Listo."}
 local C={BG=Color3.fromRGB(5,5,16),CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,255,80),DIM=Color3.fromRGB(0,160,160)}
 
@@ -86,25 +86,33 @@ Btn.MouseButton1Click:Connect(function()
 local RS=game:GetService("RunService"); local UIS=game:GetService("UserInputService")
 local VIM=game:GetService("VirtualInputManager"); local RepSto=game:GetService("ReplicatedStorage")
 local TS2=game:GetService("TweenService"); local P2=game:GetService("Players")
+local TPService=game:GetService("TeleportService"); local HttpService=game:GetService("HttpService")
 local LP=P2.LocalPlayer; local Cam=workspace.CurrentCamera
 
 local MasterEnabled=false; local AutoSkillEnabled=false; local MaxDist=500; local FOV=150
 local FastAtk=false; local FastAtkRange=12000; local FruitAtk=false
-local InfJump=false; local InstakillActive=false; local KrazyAtk2=false; local KrazyRange=3000
+local InfJump=false; local InstakillActive=false; local FastAtkV2=false; local FastAtkV2Range=3000
 local ESP_On=false; local Noclip=false; local NoclipConn=nil
 local SpaceHeld=false; local AttSpd=0.0; local LastAtk=0
 _G.WSVal=40; _G.WSOn=false; _G.autoV4=false; _G.Unbreakable=false
+local AutoBusoEnabled=false
+local AutoClickEnabled=false; local AutoClickDelay=0.08
+local BringNPCEnabled=false; local BringNPCRange=300
+local AutoFarmNearestEnabled=false; local AutoFarmBossEnabled=false; local AutoFarmAllBossesEnabled=false
+local AutoStatsEnabled=false; local AutoSkillsEnabled=false
+local ActiveStats={}
 
-local FaConn=nil; local FrConn=nil; local Fr1=nil; local Fr12=nil; local Fr166=nil; local Fr3=nil; local KA2Conn=nil
+local FaConn=nil; local FrConn=nil; local Fr1=nil; local Fr12=nil; local Fr166=nil; local Fr3=nil; local FastV2Conn=nil
 local SelectedPlayer=nil
 
--- XS HUB merge (subir nivel + cajas)
+-- Automatizaciones (subir nivel + cofres)
 local CommF=nil
-local XSAutoLevelEnabled=false; local XSAutoChestEnabled=false
-local XSFarmState="IDLE"; local XSFarmTarget=nil
-local XSTeleportTweenSpeed=300; local XSFarmPlatName="XSFarmPlatMerged"
-local XSFarmPullRadius=350; local XSFarmYOffset=30
-local XSChestCache={}; local XSLastChestScan=0
+local AutoLevelEnabled=false; local AutoChestEnabled=false
+local AutoFarmState="IDLE"; local AutoFarmTarget=nil
+local AutoTeleportTweenSpeed=300; local AutoFarmPlatName="AutoFarmPlatMerged"
+local AutoFarmPullRadius=350; local AutoFarmYOffset=30
+local ChestCache={}; local LastChestScan=0
+local SelectedBossToFarm="Gorilla King"; local BossCycleIndex=1
 
 local SPECIAL={"Leviathan","Tail","Segment","Tongue","Sea Beast","TerrorShark","Piranha","Ghost Ship","Fishman","Boss"}
 
@@ -136,8 +144,32 @@ task.spawn(function() pcall(function()
     GS.ErrorMessageChanged:Connect(function() if GS:GetErrorMessage()~="" then Rejoin() end end)
 end) end)
 
--- XS HUB quest data (Sea 1)
-local XSLevelQuests={
+local function ServerHop()
+    local placeId=game.PlaceId; local cursor=""; local servers={}
+    for _=1,4 do
+        local url="https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100"..((cursor~="" and "&cursor="..cursor) or "")
+        local ok,res=pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
+        if not ok or not res or not res.data then break end
+        for _,sv in ipairs(res.data) do
+            if type(sv)=="table" and sv.id and sv.playing and sv.maxPlayers and sv.playing<sv.maxPlayers and sv.id~=game.JobId then
+                table.insert(servers,sv.id)
+            end
+        end
+        cursor=res.nextPageCursor or ""
+        if cursor=="" then break end
+    end
+    if #servers>0 then TPService:TeleportToPlaceInstance(placeId,servers[math.random(1,#servers)],LP) end
+end
+
+local function BuyKenVision()
+    local data=LP:FindFirstChild("Data")
+    local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
+    if lvl<300 then warn("Necesitas nivel 300 para Ken Haki (Vision).") return end
+    if CommF then pcall(function() CommF:InvokeServer("KenTalk","Buy") end) end
+end
+
+-- Datos de misiones (Sea 1)
+local LevelQuestsAuto={
     {lvl=1,q="BanditQuest1",ql=1,name="Bandit",giver="Bandit Quest Giver",island="Town"},
     {lvl=10,q="JungleQuest",ql=1,name="Monkey",giver="Adventurer",island="Jungle"},
     {lvl=15,q="JungleQuest",ql=2,name="Gorilla",giver="Adventurer",island="Jungle"},
@@ -166,13 +198,19 @@ local XSLevelQuests={
     {lvl=625,q="FountainQuest",ql=1,name="Galley Pirate",giver="Fountain Quest Giver",island="Fountain"},
     {lvl=650,q="FountainQuest",ql=2,name="Galley Captain",giver="Fountain Quest Giver",island="Fountain"}
 }
+local Sea1BossesAuto={
+    {name="Gorilla King"},{name="Bobby"},{name="Yeti"},{name="Mob Leader"},
+    {name="Vice Admiral"},{name="Warden"},{name="Chief Warden"},{name="Swan"},
+    {name="Magma Admiral"},{name="Fishman Lord"},{name="Wysper"},{name="Thunder God"},
+    {name="Cyborg"},{name="Saber Expert"},{name="The Saw"},{name="Greybeard"}
+}
 
-local function XSTeleport(cf)
+local function AutoTeleport(cf)
     local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart")
     if not c or not hrp or not cf then return end
     local d=(hrp.Position-cf.Position).Magnitude
     if d<50 then c:PivotTo(cf); return end
-    local tw=TS2:Create(hrp,TweenInfo.new(d/XSTeleportTweenSpeed,Enum.EasingStyle.Linear),{CFrame=cf})
+    local tw=TS2:Create(hrp,TweenInfo.new(d/AutoTeleportTweenSpeed,Enum.EasingStyle.Linear),{CFrame=cf})
     local bv=Instance.new("BodyVelocity"); bv.MaxForce=Vector3.new(math.huge,math.huge,math.huge); bv.Velocity=Vector3.new(0,0,0); bv.Parent=hrp
     local nc=RS.Stepped:Connect(function()
         for _,v in ipairs(c:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end
@@ -180,12 +218,12 @@ local function XSTeleport(cf)
     tw:Play(); tw.Completed:Wait(); bv:Destroy(); nc:Disconnect()
 end
 
-local function XSHasQuest()
+local function HasQuestAuto()
     local pgui=LP:FindFirstChild("PlayerGui")
     return pgui and pgui:FindFirstChild("Main") and pgui.Main:FindFirstChild("Quest") and pgui.Main.Quest.Visible or false
 end
 
-local function XSMatchEnemyName(npcName,targetName)
+local function MatchEnemyNameAuto(npcName,targetName)
     if not npcName or not targetName then return false end
     if npcName==targetName then return true end
     local n=string.lower(npcName); local t=string.lower(targetName)
@@ -197,7 +235,7 @@ local function XSMatchEnemyName(npcName,targetName)
     return false
 end
 
-local function XSGetTargetEnemyNameFromQuest()
+local function GetTargetEnemyNameFromQuestAuto()
     local pgui=LP:FindFirstChild("PlayerGui")
     local main=pgui and pgui:FindFirstChild("Main")
     local quest=main and main:FindFirstChild("Quest")
@@ -205,7 +243,7 @@ local function XSGetTargetEnemyNameFromQuest()
     local title=quest:FindFirstChild("Container") and quest.Container:FindFirstChild("QuestTitle") and quest.Container.QuestTitle:FindFirstChild("Title")
     if not title or not title.Text then return nil end
     local questText=title.Text; local best=nil; local bestLen=0
-    for _,q in ipairs(XSLevelQuests) do
+    for _,q in ipairs(LevelQuestsAuto) do
         if string.find(string.lower(questText),string.lower(q.name)) and #q.name>bestLen then best=q.name; bestLen=#q.name end
     end
     local en=workspace:FindFirstChild("Enemies")
@@ -217,31 +255,31 @@ local function XSGetTargetEnemyNameFromQuest()
     return best
 end
 
-local function XSIsEnemyAlive(enemyName)
+local function IsEnemyAliveAuto(enemyName)
     local en=workspace:FindFirstChild("Enemies")
     if not en then return false end
     for _,npc in ipairs(en:GetChildren()) do
         local hm=npc:FindFirstChildOfClass("Humanoid")
-        if XSMatchEnemyName(npc.Name,enemyName) and hm and hm.Health>0 then return true end
+        if MatchEnemyNameAuto(npc.Name,enemyName) and hm and hm.Health>0 then return true end
     end
     return false
 end
 
-local function XSGetBestQuestData()
+local function GetBestQuestDataAuto()
     local data=LP:FindFirstChild("Data")
     local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
-    local best=XSLevelQuests[1]
-    for i=1,#XSLevelQuests do
-        local q=XSLevelQuests[i]
+    local best=LevelQuestsAuto[1]
+    for i=1,#LevelQuestsAuto do
+        local q=LevelQuestsAuto[i]
         if lvl>=q.lvl then
-            if q.isBoss then if XSIsEnemyAlive(q.name) then best=q end
+            if q.isBoss then if IsEnemyAliveAuto(q.name) then best=q end
             else best=q end
         else break end
     end
     return best
 end
 
-local function XSGetIslandPosition(keyword)
+local function GetIslandPositionAuto(keyword)
     local wo=workspace:FindFirstChild("_WorldOrigin")
     local locs=wo and wo:FindFirstChild("Locations")
     if not locs then return nil end
@@ -249,9 +287,9 @@ local function XSGetIslandPosition(keyword)
     return nil
 end
 
-local XSCachedSpawns={}
-local function XSGetEnemySpawnPosition(enemyName)
-    if XSCachedSpawns[enemyName] and XSCachedSpawns[enemyName].Y>0 then return XSCachedSpawns[enemyName] end
+local CachedSpawnsAuto={}
+local function GetEnemySpawnPositionAuto(enemyName)
+    if CachedSpawnsAuto[enemyName] and CachedSpawnsAuto[enemyName].Y>0 then return CachedSpawnsAuto[enemyName] end
     local wo=workspace:FindFirstChild("_WorldOrigin")
     local spawns=wo and wo:FindFirstChild("EnemySpawns")
     if spawns then
@@ -262,24 +300,24 @@ local function XSGetEnemySpawnPosition(enemyName)
                 if diff<diffBest then diffBest=diff; best=sp.Position end
             end
         end
-        if best then XSCachedSpawns[enemyName]=best; return best end
+        if best then CachedSpawnsAuto[enemyName]=best; return best end
     end
     local en=workspace:FindFirstChild("Enemies")
     if en then
         for _,npc in ipairs(en:GetChildren()) do
             local hrp=npc:FindFirstChild("HumanoidRootPart")
-            if hrp and XSMatchEnemyName(npc.Name,enemyName) and hrp.Position.Y>0 then
-                XSCachedSpawns[enemyName]=hrp.Position; return hrp.Position
+            if hrp and MatchEnemyNameAuto(npc.Name,enemyName) and hrp.Position.Y>0 then
+                CachedSpawnsAuto[enemyName]=hrp.Position; return hrp.Position
             end
         end
     end
     return nil
 end
 
-local function XSGetQuestGiverPosition(qData)
+local function GetQuestGiverPositionAuto(qData)
     if not qData or not qData.giver then return nil end
     local npcs=workspace:FindFirstChild("NPCs"); if not npcs then return nil end
-    local spawnPos=XSGetEnemySpawnPosition(qData.name) or XSGetIslandPosition(qData.island)
+    local spawnPos=GetEnemySpawnPositionAuto(qData.name) or GetIslandPositionAuto(qData.island)
     local best=nil; local minDist=math.huge
     for _,npc in ipairs(npcs:GetChildren()) do
         local hrp=npc:FindFirstChild("HumanoidRootPart")
@@ -291,16 +329,45 @@ local function XSGetQuestGiverPosition(qData)
     return best
 end
 
-local function XSGatherTargets(myHRP,targetName,maxR)
+local function GatherTargetsAuto(myHRP,targetName,maxR)
     local t={}; local en=workspace:FindFirstChild("Enemies")
     if not en or not myHRP or not targetName then return t end
     for _,npc in ipairs(en:GetChildren()) do
         local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
-        if hm and hrp and hm.Health>0 and XSMatchEnemyName(npc.Name,targetName) and (hrp.Position-myHRP.Position).Magnitude<=maxR then
+        if hm and hrp and hm.Health>0 and MatchEnemyNameAuto(npc.Name,targetName) and (hrp.Position-myHRP.Position).Magnitude<=maxR then
             table.insert(t,{npc,npc:FindFirstChild("Head") or hrp}); if #t>=8 then break end
         end
     end
     return t
+end
+
+local function GetNearestEnemyNameAuto(myHRP)
+    local en=workspace:FindFirstChild("Enemies")
+    if not en or not myHRP then return nil end
+    local nearName=nil; local nearDist=math.huge
+    for _,npc in ipairs(en:GetChildren()) do
+        local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
+        if hm and hrp and hm.Health>0 and hrp.Position.Y>0 then
+            local d=(hrp.Position-myHRP.Position).Magnitude
+            if d<nearDist then nearDist=d; nearName=npc.Name end
+        end
+    end
+    return nearName
+end
+
+local function GetCurrentFarmTargetAuto(myHRP)
+    if AutoFarmAllBossesEnabled then
+        for _,b in ipairs(Sea1BossesAuto) do if IsEnemyAliveAuto(b.name) then return b.name,nil,true end end
+        if #Sea1BossesAuto>0 then
+            local b=Sea1BossesAuto[BossCycleIndex] or Sea1BossesAuto[1]
+            BossCycleIndex=(BossCycleIndex % #Sea1BossesAuto)+1
+            return b.name,nil,true
+        end
+    end
+    if AutoFarmBossEnabled then return SelectedBossToFarm,nil,true end
+    if AutoFarmNearestEnabled then return GetNearestEnemyNameAuto(myHRP),nil,true end
+    local qData=GetBestQuestDataAuto()
+    return (qData and (GetTargetEnemyNameFromQuestAuto() or qData.name) or nil),qData,false
 end
 
 -- Funciones combate
@@ -348,17 +415,17 @@ local function StartFastAtk()
         if #targets>0 then FireAtk(targets) end end)
 end
 
-local function StartKA2()
-    if KA2Conn then KA2Conn:Disconnect() end
-    KA2Conn=RS.Heartbeat:Connect(function()
-        if not KrazyAtk2 then return end; if tick()-LastAtk<AttSpd then return end
+local function StartFastAtkV2()
+    if FastV2Conn then FastV2Conn:Disconnect() end
+    FastV2Conn=RS.Heartbeat:Connect(function()
+        if not FastAtkV2 then return end; if tick()-LastAtk<AttSpd then return end
         local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         local targets={}
         for _,v in ipairs(workspace:GetChildren()) do local iT=false
             for _,nm in ipairs(SPECIAL) do if string.find(v.Name,nm) then iT=true; break end end
             if iT or (v:FindFirstChildOfClass("Humanoid") and v.Name~=LP.Name) then
                 local hm=v:FindFirstChildOfClass("Humanoid"); local tr=v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head")
-                if hm and hm.Health>0 and tr and (hrp.Position-tr.Position).Magnitude<=KrazyRange then
+                if hm and hm.Health>0 and tr and (hrp.Position-tr.Position).Magnitude<=FastAtkV2Range then
                     table.insert(targets,{v,tr}); if #targets>=5 then break end end end end
         if #targets>0 then LastAtk=tick(); FireAtk(targets) end end)
 end
@@ -389,49 +456,123 @@ UIS.InputEnded:Connect(function(i) if i.KeyCode==Enum.KeyCode.Space then SpaceHe
 RS.Heartbeat:Connect(function() if InfJump and SpaceHeld then local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.Velocity=Vector3.new(hrp.Velocity.X,50,hrp.Velocity.Z) end end end)
 
--- XS HUB merge: auto subir nivel
+task.spawn(function()
+    while task.wait(0.5) do
+        if AutoBusoEnabled and CommF then
+            local c=LP.Character
+            if c and not c:FindFirstChild("HasBuso") then pcall(function() CommF:InvokeServer("Buso") end) end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if AutoStatsEnabled and CommF and #ActiveStats>0 then
+            local data=LP:FindFirstChild("Data")
+            local ptsObj=data and data:FindFirstChild("Points")
+            local pts=ptsObj and ptsObj.Value or 0
+            if pts>0 then
+                local n=#ActiveStats; local base=math.floor(pts/n); local rem=pts%n
+                for i,stat in ipairs(ActiveStats) do
+                    local add=base + ((i<=rem) and 1 or 0)
+                    if add>0 then pcall(function() CommF:InvokeServer("AddPoint",stat,add) end); task.wait(0.15) end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    local keys={Enum.KeyCode.Z,Enum.KeyCode.X,Enum.KeyCode.C,Enum.KeyCode.V,Enum.KeyCode.F}
+    while task.wait(0.45) do
+        local anyFarm=AutoLevelEnabled or AutoFarmNearestEnabled or AutoFarmBossEnabled or AutoFarmAllBossesEnabled
+        if AutoSkillsEnabled and anyFarm then
+            for _,k in ipairs(keys) do
+                VIM:SendKeyEvent(true,k,false,game); task.wait(0.03); VIM:SendKeyEvent(false,k,false,game); task.wait(0.06)
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(math.max(0.01,AutoClickDelay))
+        if AutoClickEnabled then
+            pcall(function()
+                VIM:SendMouseButtonEvent(0,0,0,true,game,0)
+                task.wait(0.01)
+                VIM:SendMouseButtonEvent(0,0,0,false,game,0)
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not BringNPCEnabled then continue end
+        local c=LP.Character; local myHRP=c and c:FindFirstChild("HumanoidRootPart")
+        local en=workspace:FindFirstChild("Enemies")
+        if not myHRP or not en then continue end
+        local i=0
+        for _,npc in ipairs(en:GetChildren()) do
+            local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
+            if hm and hrp and hm.Health>0 and (hrp.Position-myHRP.Position).Magnitude<=BringNPCRange then
+                i=i+1
+                local a=math.rad((i*40)%360); local r=8
+                local off=Vector3.new(math.cos(a)*r,-2,math.sin(a)*r)
+                hrp.CFrame=CFrame.new(myHRP.Position+off)
+                hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+                hrp.CanCollide=false
+            end
+        end
+    end
+end)
+
+-- Auto subir nivel
 task.spawn(function()
     while task.wait(0.15) do
-        if not XSAutoLevelEnabled then
-            XSFarmState="IDLE"; XSFarmTarget=nil
-            local oldPlat=workspace:FindFirstChild(XSFarmPlatName); if oldPlat then oldPlat:Destroy() end
+        local anyFarmMode=AutoLevelEnabled or AutoFarmNearestEnabled or AutoFarmBossEnabled or AutoFarmAllBossesEnabled
+        if not anyFarmMode then
+            AutoFarmState="IDLE"; AutoFarmTarget=nil
+            local oldPlat=workspace:FindFirstChild(AutoFarmPlatName); if oldPlat then oldPlat:Destroy() end
             continue
         end
 
         local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); local hm=c and c:FindFirstChildOfClass("Humanoid")
         if not c or not hrp or not hm or hm.Health<=0 then continue end
 
-        local plat=workspace:FindFirstChild(XSFarmPlatName)
+        local plat=workspace:FindFirstChild(AutoFarmPlatName)
         if not plat then
-            plat=Instance.new("Part"); plat.Name=XSFarmPlatName; plat.Anchored=true; plat.CanCollide=false; plat.Transparency=1
+            plat=Instance.new("Part"); plat.Name=AutoFarmPlatName; plat.Anchored=true; plat.CanCollide=false; plat.Transparency=1
             plat.Size=Vector3.new(15,1,15); plat.CFrame=hrp.CFrame*CFrame.new(0,-3.5,0); plat.Parent=workspace
         end
 
-        local qData=XSGetBestQuestData(); if not qData then continue end
-        local targetEnemyName=XSGetTargetEnemyNameFromQuest() or qData.name
-        XSFarmTarget=targetEnemyName
+        local targetEnemyName,qData,forceNoQuest=GetCurrentFarmTargetAuto(hrp)
+        if not targetEnemyName then AutoFarmState="WAITING"; continue end
+        AutoFarmTarget=targetEnemyName
 
-        if not XSHasQuest() then
-            XSFarmState="GETTING_QUEST"
-            local giverCF=XSGetQuestGiverPosition(qData)
+        local needsQuest=AutoLevelEnabled and not forceNoQuest
+        if needsQuest and not HasQuestAuto() then
+            AutoFarmState="GETTING_QUEST"
+            local giverCF=GetQuestGiverPositionAuto(qData)
             if giverCF then
-                if (hrp.Position-giverCF.Position).Magnitude>15 then XSTeleport(giverCF)
+                if (hrp.Position-giverCF.Position).Magnitude>15 then AutoTeleport(giverCF)
                 else
                     hrp.CFrame=giverCF; task.wait(0.2)
                     if CommF then pcall(function() CommF:InvokeServer("StartQuest",qData.q,qData.ql) end) end
                 end
             else
-                local islandPos=XSGetIslandPosition(qData.island)
-                if islandPos then XSTeleport(CFrame.new(islandPos)*CFrame.new(0,30,0)) end
+                local islandPos=GetIslandPositionAuto(qData.island)
+                if islandPos then AutoTeleport(CFrame.new(islandPos)*CFrame.new(0,30,0)) end
             end
             continue
         end
 
-        XSFarmState="FARMING"
+        AutoFarmState="FARMING"
         local en=workspace:FindFirstChild("Enemies"); local firstNPC=nil; local minDist=math.huge
         if en then
             for _,npc in ipairs(en:GetChildren()) do
-                if XSMatchEnemyName(npc.Name,targetEnemyName) then
+                if MatchEnemyNameAuto(npc.Name,targetEnemyName) then
                     local nHrp=npc:FindFirstChild("HumanoidRootPart"); local nHm=npc:FindFirstChildOfClass("Humanoid")
                     if nHrp and nHm and nHm.Health>0 and nHrp.Position.Y>0 then
                         local d=(nHrp.Position-hrp.Position).Magnitude
@@ -444,33 +585,33 @@ task.spawn(function()
         if firstNPC then
             local nHrp=firstNPC:FindFirstChild("HumanoidRootPart")
             if nHrp then
-                local targetCF=CFrame.new(nHrp.Position.X,nHrp.Position.Y+XSFarmYOffset,nHrp.Position.Z)
+                local targetCF=CFrame.new(nHrp.Position.X,nHrp.Position.Y+AutoFarmYOffset,nHrp.Position.Z)
                 plat.CFrame=targetCF
-                if (hrp.Position-plat.Position).Magnitude>15 then XSTeleport(plat.CFrame*CFrame.new(0,3.5,0))
+                if (hrp.Position-plat.Position).Magnitude>15 then AutoTeleport(plat.CFrame*CFrame.new(0,3.5,0))
                 else hrp.CFrame=plat.CFrame*CFrame.new(0,3.5,0) end
                 hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
                 local pullCF=plat.CFrame*CFrame.new(0,-30,0)
                 if en then
                     for _,npc in ipairs(en:GetChildren()) do
-                        if XSMatchEnemyName(npc.Name,targetEnemyName) then
+                        if MatchEnemyNameAuto(npc.Name,targetEnemyName) then
                             local oHrp=npc:FindFirstChild("HumanoidRootPart"); local oHm=npc:FindFirstChildOfClass("Humanoid")
-                            if oHrp and oHm and oHm.Health>0 and (oHrp.Position-pullCF.Position).Magnitude<XSFarmPullRadius then
+                            if oHrp and oHm and oHm.Health>0 and (oHrp.Position-pullCF.Position).Magnitude<AutoFarmPullRadius then
                                 oHrp.CFrame=pullCF; oHrp.CanCollide=false; oHrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
                                 oHm.WalkSpeed=0; oHm.JumpPower=0
                             end
                         end
                     end
                 end
-                local targets=XSGatherTargets(hrp,targetEnemyName,FastAtkRange)
+                local targets=GatherTargetsAuto(hrp,targetEnemyName,FastAtkRange)
                 if #targets>0 then FireAtk(targets) end
             end
         else
-            XSFarmState="WAITING"
-            local spawnPos=XSGetEnemySpawnPosition(targetEnemyName) or XSGetIslandPosition(qData.island)
+            AutoFarmState="WAITING"
+            local spawnPos=GetEnemySpawnPositionAuto(targetEnemyName) or (qData and GetIslandPositionAuto(qData.island) or nil)
             if spawnPos then
                 local hoverCF=CFrame.new(spawnPos)*CFrame.new(0,30,0)
                 plat.CFrame=hoverCF
-                if (hrp.Position-hoverCF.Position).Magnitude>20 then XSTeleport(hoverCF*CFrame.new(0,3.5,0))
+                if (hrp.Position-hoverCF.Position).Magnitude>20 then AutoTeleport(hoverCF*CFrame.new(0,3.5,0))
                 else hrp.CFrame=hoverCF*CFrame.new(0,3.5,0) end
                 hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
             end
@@ -478,32 +619,32 @@ task.spawn(function()
     end
 end)
 
--- XS HUB merge: auto cajas
-local function XSGetChests()
-    if tick()-XSLastChestScan>15 or #XSChestCache==0 then
-        XSLastChestScan=tick(); table.clear(XSChestCache)
+-- Auto recoleccion de cofres
+local function GetChestsAuto()
+    if tick()-LastChestScan>15 or #ChestCache==0 then
+        LastChestScan=tick(); table.clear(ChestCache)
         pcall(function()
             for _,v in ipairs(workspace:GetDescendants()) do
-                if string.find(v.Name,"Chest") and v:IsA("BasePart") then table.insert(XSChestCache,v) end
+                if string.find(v.Name,"Chest") and v:IsA("BasePart") then table.insert(ChestCache,v) end
             end
         end)
     end
     local active={}
-    for _,ch in ipairs(XSChestCache) do if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then table.insert(active,ch) end end
+    for _,ch in ipairs(ChestCache) do if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then table.insert(active,ch) end end
     return active
 end
 
 task.spawn(function()
     while task.wait(1) do
-        if not XSAutoChestEnabled then continue end
+        if not AutoChestEnabled then continue end
         local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); if not hrp then continue end
-        local chests=XSGetChests(); if #chests==0 then continue end
+        local chests=GetChestsAuto(); if #chests==0 then continue end
         table.sort(chests,function(a,b) return (hrp.Position-a.Position).Magnitude<(hrp.Position-b.Position).Magnitude end)
         for _,ch in ipairs(chests) do
-            if not XSAutoChestEnabled then break end
+            if not AutoChestEnabled then break end
             if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then
                 local cf=ch.CFrame
-                if (hrp.Position-cf.Position).Magnitude>15 then XSTeleport(cf) else hrp.CFrame=cf end
+                if (hrp.Position-cf.Position).Magnitude>15 then AutoTeleport(cf) else hrp.CFrame=cf end
                 task.wait(0.2)
                 if firetouchinterest and ch:FindFirstChild("TouchInterest") then
                     firetouchinterest(hrp,ch,0); task.wait(0.01); firetouchinterest(hrp,ch,1)
@@ -542,7 +683,7 @@ local PGui2=LP:WaitForChild("PlayerGui")
 local C2={BG=Color3.fromRGB(5,5,16),BG2=Color3.fromRGB(6,6,26),SIDEBAR=Color3.fromRGB(6,6,22),
     CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,220,80),
     DIM=Color3.fromRGB(0,140,140),DIMTXT=Color3.fromRGB(0,80,80)}
-local TAB_NAMES={"PERFIL","FARM","PVP","SHOP","VISUALS"}; local TAB_KEYS={"Perfil","Farm","PvP","Shop","Visuals"}
+local TAB_NAMES={"PERFIL","FARM","PVP","TP","SHOP","VISUALS"}; local TAB_KEYS={"Perfil","Farm","PvP","TP","Shop","Visuals"}
 local WIN_W=420; local WIN_H=285; local TOP_H=30; local SIDE_W=92; local CONT_W=WIN_W-SIDE_W; local CONT_H=WIN_H-TOP_H
 
 local SG2=Instance.new("ScreenGui"); SG2.Name="CyberpunkMain"; SG2.ResetOnSpawn=false
@@ -558,19 +699,19 @@ DSQLabel.BorderSizePixel=0; DSQLabel.Text="DS"; DSQLabel.TextColor3=C2.CYAN; DSQ
 DSQLabel.TextSize=23; DSQLabel.TextXAlignment=Enum.TextXAlignment.Center; DSQLabel.TextYAlignment=Enum.TextYAlignment.Center
 DSQLabel.ZIndex=41; DSQLabel.Parent=DSQuick
 local DSQBtn=Instance.new("TextButton"); DSQBtn.Size=UDim2.fromScale(1,1); DSQBtn.BackgroundTransparency=1
-DSQBtn.Text=""; DSQBtn.AutoButtonColor=false; DSQBtn.ZIndex=42; DSQBtn.Parent=DSQuick
+DSQBtn.Text=""; DSQBtn.AutoButtonColor=false; DSQBtn.Active=true; DSQBtn.ZIndex=42; DSQBtn.Parent=DSQuick
 local HUDHidden=false
 local DSQDragging=false; local DSQDragStart=nil; local DSQStartPos=nil; local DSQMoved=false
 DSQBtn.MouseEnter:Connect(function() if not HUDHidden then DSQSt.Color=C2.PINK; DSQLabel.TextColor3=C2.PINK end end)
 DSQBtn.MouseLeave:Connect(function() if not HUDHidden then DSQSt.Color=C2.CYAN; DSQLabel.TextColor3=C2.CYAN end end)
-DSQuick.InputBegan:Connect(function(i)
+DSQBtn.InputBegan:Connect(function(i)
     if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
         DSQDragging=true; DSQMoved=false; DSQDragStart=i.Position; DSQStartPos=DSQuick.Position
-    end
-end)
-DSQuick.InputEnded:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-        DSQDragging=false
+        i.Changed:Connect(function()
+            if i.UserInputState==Enum.UserInputState.End then
+                DSQDragging=false
+            end
+        end)
     end
 end)
 
@@ -728,6 +869,14 @@ local function MkSlider(parent,label,desc,order,minV,maxV,defV,step,onChange)
     return card
 end
 
+local function SetAutoStat(statName,enabled)
+    if enabled then
+        if not table.find(ActiveStats,statName) then table.insert(ActiveStats,statName) end
+    else
+        local idx=table.find(ActiveStats,statName); if idx then table.remove(ActiveStats,idx) end
+    end
+end
+
 -- Selector de jugador simple
 local PlayerListFrame=nil
 local function MkPlayerSelector(parent,order)
@@ -768,6 +917,7 @@ local function MkPlayerSelector(parent,order)
         else listPanel.Visible=false end end)
     return card
 end
+
 
 -- ══════════════════════════════════════
 -- PÁGINAS
@@ -810,60 +960,103 @@ Pages["Perfil"]=PgP
 
 -- FARM
 local PgF=MkPage("Farm")
-MkSec(PgF,"Krazy Kill",1)
-MkToggle(PgF,"Krazy Kill","Instakill al enemigo",3,
+MkSec(PgF,"Auto Farm (Sea 1)",1)
+MkToggle(PgF,"Auto Farm Nivel","Sube nivel automatico con quests (Sea 1)",3,
+    function() AutoLevelEnabled=true end,
+    function()
+        AutoLevelEnabled=false; AutoFarmState="IDLE"; AutoFarmTarget=nil
+        local p=workspace:FindFirstChild(AutoFarmPlatName); if p then p:Destroy() end
+    end)
+MkToggle(PgF,"Auto Farm Nearest","Farmea el NPC mas cercano",5,
+    function() AutoFarmNearestEnabled=true end, function() AutoFarmNearestEnabled=false end)
+MkToggle(PgF,"Recoleccion de Cofres","Farm de cajas (Beli)",7,
+    function() AutoChestEnabled=true end,
+    function() AutoChestEnabled=false end)
+MkSlider(PgF,"Velocidad de Traslado","Velocidad de TP del auto farm/cajas",9,120,800,300,20,function(v) AutoTeleportTweenSpeed=v end)
+
+MkSec(PgF,"Boss Hunter",11)
+local BossCard=MkBlock(PgF,"Boss Objetivo: "..SelectedBossToFarm.." [Click para cambiar]",13)
+local BossLbl=BossCard:FindFirstChildOfClass("TextLabel")
+local BossBtn=Instance.new("TextButton"); BossBtn.Size=UDim2.fromScale(1,1); BossBtn.BackgroundTransparency=1; BossBtn.Text=""; BossBtn.ZIndex=17; BossBtn.Parent=BossCard
+BossBtn.MouseButton1Click:Connect(function()
+    if #Sea1BossesAuto==0 then return end
+    local idx=1
+    for i,b in ipairs(Sea1BossesAuto) do if b.name==SelectedBossToFarm then idx=i; break end end
+    idx=(idx % #Sea1BossesAuto)+1
+    SelectedBossToFarm=Sea1BossesAuto[idx].name
+    if BossLbl then BossLbl.Text="Boss Objetivo: "..SelectedBossToFarm.." [Click para cambiar]" end
+end)
+MkToggle(PgF,"Auto Farm Boss","Farmea solo el boss seleccionado",15,
+    function() AutoFarmBossEnabled=true end, function() AutoFarmBossEnabled=false end)
+MkToggle(PgF,"Auto Farm All Bosses","Rota entre jefes automaticamente",17,
+    function() AutoFarmAllBossesEnabled=true; BossCycleIndex=1 end,
+    function() AutoFarmAllBossesEnabled=false end)
+
+MkSec(PgF,"Haki",19)
+MkToggle(PgF,"Auto Haki (Buso)","Activa aura automaticamente",21,
+    function() AutoBusoEnabled=true end, function() AutoBusoEnabled=false end)
+
+MkSec(PgF,"Progreso",23)
+MkToggle(PgF,"Auto Skills","Usa Z/X/C/V/F durante el farm",25,
+    function() AutoSkillsEnabled=true end, function() AutoSkillsEnabled=false end)
+MkToggle(PgF,"Auto Stats","Reparte puntos automaticamente",27,
+    function() AutoStatsEnabled=true end, function() AutoStatsEnabled=false end)
+MkToggle(PgF,"Melee Stat","Incluye Melee en Auto Stats",29, function() SetAutoStat("Melee",true) end, function() SetAutoStat("Melee",false) end)
+MkToggle(PgF,"Defense Stat","Incluye Defense en Auto Stats",31, function() SetAutoStat("Defense",true) end, function() SetAutoStat("Defense",false) end)
+MkToggle(PgF,"Sword Stat","Incluye Sword en Auto Stats",33, function() SetAutoStat("Sword",true) end, function() SetAutoStat("Sword",false) end)
+MkToggle(PgF,"Gun Stat","Incluye Gun en Auto Stats",35, function() SetAutoStat("Gun",true) end, function() SetAutoStat("Gun",false) end)
+MkToggle(PgF,"Fruit Stat","Incluye Demon Fruit en Auto Stats",37, function() SetAutoStat("Demon Fruit",true) end, function() SetAutoStat("Demon Fruit",false) end)
+
+MkSec(PgF,"Ataques",39)
+MkToggle(PgF,"Ataque Rapido V3","Instakill al enemigo",41,
     function() InstakillActive=true; task.spawn(function() while InstakillActive do
         local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         if hrp then hrp.CFrame=CFrame.new(hrp.Position.X,hrp.Position.Y-1e15,hrp.Position.Z) end; task.wait(0.01) end end) end,
     function() InstakillActive=false end)
-MkToggle(PgF,"Krazy Attack 2","NPCs, Leviathan, Sea Events",5,
-    function() KrazyAtk2=true; StartKA2() end, function() KrazyAtk2=false end)
-MkToggle(PgF,"Fast Attack","Multi-target rapido",7,
+MkToggle(PgF,"Ataque Rapido V2","NPCs, Leviathan, Sea Events",43,
+    function() FastAtkV2=true; StartFastAtkV2() end, function() FastAtkV2=false end)
+MkToggle(PgF,"Ataque Rapido V1","Multi-target rapido",45,
     function() FastAtk=true; StartFastAtk() end,
     function() FastAtk=false; if FaConn then FaConn:Disconnect() end end)
-MkSlider(PgF,"Attack Range","Rango del Fast Attack",9,100,20000,12000,500,function(v) FastAtkRange=v end)
-MkSlider(PgF,"Krazy Range","Rango del Krazy Attack 2",11,100,10000,3000,250,function(v) KrazyRange=v end)
-MkSec(PgF,"Frutas",13)
-MkToggle(PgF,"Pain-Pain","Auto click Pain",15,
+MkSlider(PgF,"Rango Ataque V1","Rango del Ataque Rapido V1",47,100,20000,12000,500,function(v) FastAtkRange=v end)
+MkSlider(PgF,"Rango Ataque V2","Rango del Ataque Rapido V2",49,100,10000,3000,250,function(v) FastAtkV2Range=v end)
+MkSec(PgF,"Frutas",51)
+MkToggle(PgF,"Pain-Pain","Auto click Pain",53,
     function() FruitAtk=true; Fr1=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Pain-Pain"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,0,d.Z),1,true) end) end end end) end,
     function() FruitAtk=false; if Fr1 then task.cancel(Fr1); Fr1=nil end end)
-MkToggle(PgF,"Dragon-Dragon","Auto click Dragon",17,
+MkToggle(PgF,"Dragon-Dragon","Auto click Dragon",55,
     function() FruitAtk=true; Fr12=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Dragon-Dragon"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),1) end) end end end) end,
     function() FruitAtk=false; if Fr12 then task.cancel(Fr12); Fr12=nil end end)
-MkToggle(PgF,"Tiger-Tiger","Auto click Tiger",19,
+MkToggle(PgF,"Tiger-Tiger","Auto click Tiger",57,
     function() FruitAtk=true; Fr166=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Tiger-Tiger"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),3) end) end end end) end,
     function() FruitAtk=false; if Fr166 then task.cancel(Fr166); Fr166=nil end end)
-MkToggle(PgF,"T-Rex-T-Rex","Auto click T-Rex",21,
+MkToggle(PgF,"T-Rex-T-Rex","Auto click T-Rex",59,
     function() FruitAtk=true; Fr3=task.spawn(function() while FruitAtk do task.wait(0)
         local _,a,r=GetFrRemote("T-Rex-T-Rex"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),1) end) end end end) end,
     function() FruitAtk=false; if Fr3 then task.cancel(Fr3); Fr3=nil end end)
-MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",23,
+MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",61,
     function() FruitAtk=true; FrConn=task.spawn(function() while FruitAtk do task.wait(0.001)
         local _,a,r=GetFrRemote("Kitsune-Kitsune"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(d,1,true) end) end end end) end,
     function() FruitAtk=false; if FrConn then task.cancel(FrConn); FrConn=nil end end)
-MkSec(PgF,"Movimiento",25)
-MkToggle(PgF,"Infinite Jump","Salta sin limite",27, function() InfJump=true end, function() InfJump=false end)
-MkToggle(PgF,"WalkSpeed","Velocidad personalizada",29, function() _G.WSOn=true end, function() _G.WSOn=false end)
-MkSlider(PgF,"Velocidad","WalkSpeed actual",31,16,500,40,5,function(v) _G.WSVal=v end)
-MkSec(PgF,"XS HUB Merge",33)
-MkToggle(PgF,"Auto Farm Nivel (XS)","Sube nivel automatico con quests (Sea 1)",35,
-    function() XSAutoLevelEnabled=true end,
-    function()
-        XSAutoLevelEnabled=false; XSFarmState="IDLE"; XSFarmTarget=nil
-        local p=workspace:FindFirstChild(XSFarmPlatName); if p then p:Destroy() end
-    end)
-MkToggle(PgF,"Auto Chest (XS)","Farm de cajas (Beli)",37,
-    function() XSAutoChestEnabled=true end,
-    function() XSAutoChestEnabled=false end)
-MkSlider(PgF,"Tween Speed XS","Velocidad de TP del auto farm/cajas",39,120,800,300,20,function(v) XSTeleportTweenSpeed=v end)
+MkSec(PgF,"Utilidades de Combate",63)
+MkToggle(PgF,"Auto Click","Click izquierdo automatico",65,
+    function() AutoClickEnabled=true end, function() AutoClickEnabled=false end)
+MkSlider(PgF,"Delay Click","Tiempo entre clicks",67,1,30,8,1,function(v) AutoClickDelay=v/100 end)
+MkToggle(PgF,"Bring NPC","Trae NPCs cercanos hacia ti",69,
+    function() BringNPCEnabled=true end, function() BringNPCEnabled=false end)
+MkSlider(PgF,"Rango Bring NPC","Distancia para traer NPCs",71,50,1000,300,25,function(v) BringNPCRange=v end)
+MkSec(PgF,"Movimiento",73)
+MkToggle(PgF,"Infinite Jump","Salta sin limite",75, function() InfJump=true end, function() InfJump=false end)
+MkToggle(PgF,"WalkSpeed","Velocidad personalizada",77, function() _G.WSOn=true end, function() _G.WSOn=false end)
+MkSlider(PgF,"Velocidad","WalkSpeed actual",79,16,500,40,5,function(v) _G.WSVal=v end)
 Pages["Farm"]=PgF
 
 -- PVP
@@ -877,24 +1070,26 @@ MkSec(PgV,"Combate",11)
 MkToggle(PgV,"Noclip","Atraviesa paredes",13, function() SetNoclip(true) end, function() SetNoclip(false) end)
 MkToggle(PgV,"Hitbox Expander","Expande hitbox del personaje",15,
     function() getgenv().HitboxExpander=true end, function() getgenv().HitboxExpander=false end)
-MkSec(PgV,"Defensa",17)
-MkToggle(PgV,"Anti Stun","Evita el stun",19,
+MkSec(PgV,"Jugadores",17)
+MkToggle(PgV,"ESP Jugadores","Cajas y nombres visibles",19, function() ESP_On=true end, function() ESP_On=false end)
+MkSec(PgV,"Defensa",21)
+MkToggle(PgV,"Anti Stun","Evita el stun",23,
     function() local function f(c) if not c:FindFirstChild("AntiMover") then Instance.new("Folder",c).Name="AntiMover" end end
         if LP.Character then f(LP.Character) end; _G.ASC=LP.CharacterAdded:Connect(f) end,
     function() if _G.ASC then _G.ASC:Disconnect() end
         if LP.Character and LP.Character:FindFirstChild("AntiMover") then LP.Character.AntiMover:Destroy() end end)
-MkToggle(PgV,"Unbreakable","Atributo invulnerable",21,
+MkToggle(PgV,"Unbreakable","Atributo invulnerable",25,
     function() _G.Unbreakable=true; task.spawn(function() while _G.Unbreakable do task.wait(0.1)
         if LP.Character then LP.Character:SetAttribute("UnbreakableAll",true) end end end) end,
     function() _G.Unbreakable=false end)
 Pages["PvP"]=PgV
 
--- SHOP / TELEPORTS
-local PgSh=MkPage("Shop")
-MkSec(PgSh,"Seleccion de Jugador",1)
-MkPlayerSelector(PgSh,3)
-MkSec(PgSh,"Teleport",6)
-local TpCard=MkBlock(PgSh,"[Click] TP al jugador seleccionado",8)
+-- TP
+local PgTP=MkPage("TP")
+MkSec(PgTP,"Seleccion de Jugador",1)
+MkPlayerSelector(PgTP,3)
+MkSec(PgTP,"Teleport",6)
+local TpCard=MkBlock(PgTP,"[Click] TP al jugador seleccionado",8)
 local TpHit=Instance.new("TextButton"); TpHit.Size=UDim2.fromScale(1,1); TpHit.BackgroundTransparency=1; TpHit.Text=""; TpHit.ZIndex=17; TpHit.Parent=TpCard
 TpHit.MouseButton1Click:Connect(function()
     if not SelectedPlayer then return end
@@ -903,7 +1098,7 @@ TpHit.MouseButton1Click:Connect(function()
         local tHRP=t.Character:FindFirstChild("HumanoidRootPart")
         if hrp and tHRP then hrp.CFrame=tHRP.CFrame*CFrame.new(0,0,3) end end end)
 
-MkToggle(PgSh,"Tween TP","Se mueve hacia el jugador (vel 200)",10,
+MkToggle(PgTP,"Tween TP","Se mueve hacia el jugador (vel 200)",10,
     function()
         _G.TweenTPOn=true
         local TwTPConn=RS.Heartbeat:Connect(function()
@@ -918,47 +1113,54 @@ MkToggle(PgSh,"Tween TP","Se mueve hacia el jugador (vel 200)",10,
         _G.TwTPConn=TwTPConn end,
     function() _G.TweenTPOn=false; if _G.TwTPConn then _G.TwTPConn:Disconnect() end; if _G.TwTPActiveTween then _G.TwTPActiveTween:Cancel() end end)
 
-MkToggle(PgSh,"Spectate","Ver camara del jugador seleccionado",12,
+MkToggle(PgTP,"Spectate","Ver camara del jugador seleccionado",12,
     function() _G.SpecOn=true; _G.SpecConn=RS.RenderStepped:Connect(function()
         if _G.SpecOn and SelectedPlayer then local t=P2:FindFirstChild(SelectedPlayer)
             if t and t.Character then workspace.CurrentCamera.CameraSubject=t.Character.Humanoid end end end) end,
     function() _G.SpecOn=false; if _G.SpecConn then _G.SpecConn:Disconnect() end
         if LP.Character then workspace.CurrentCamera.CameraSubject=LP.Character.Humanoid end end)
 
-MkSec(PgSh,"Misc",14)
-local BcCard=MkBlock(PgSh,"[Click] TP Barco Embrujado Sea 2",16)
+MkSec(PgTP,"Rutas",14)
+local BcCard=MkBlock(PgTP,"[Click] TP Barco Embrujado Sea 2",16)
 local BcHit=Instance.new("TextButton"); BcHit.Size=UDim2.fromScale(1,1); BcHit.BackgroundTransparency=1; BcHit.Text=""; BcHit.ZIndex=17; BcHit.Parent=BcCard
 BcHit.MouseButton1Click:Connect(function() local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart"); if hrp then hrp.CFrame=CFrame.new(938.212,125.103,32852.832) end end)
-MkToggle(PgSh,"Auto V4","Invoca V4 automaticamente",18,
+MkSec(PgTP,"Servidor",18)
+local HopCard=MkBlock(PgTP,"[Click] Server Hop",20)
+local HopHit=Instance.new("TextButton"); HopHit.Size=UDim2.fromScale(1,1); HopHit.BackgroundTransparency=1; HopHit.Text=""; HopHit.ZIndex=17; HopHit.Parent=HopCard
+HopHit.MouseButton1Click:Connect(function() task.spawn(ServerHop) end)
+Pages["TP"]=PgTP
+
+-- SHOP
+local PgSh=MkPage("Shop")
+MkSec(PgSh,"Haki y Compras",1)
+local KenCard=MkBlock(PgSh,"[Click] Comprar Ken Haki (Vision) - Nivel 300",3)
+local KenHit=Instance.new("TextButton"); KenHit.Size=UDim2.fromScale(1,1); KenHit.BackgroundTransparency=1; KenHit.Text=""; KenHit.ZIndex=17; KenHit.Parent=KenCard
+KenHit.MouseButton1Click:Connect(function() BuyKenVision() end)
+MkToggle(PgSh,"Auto V4","Invoca V4 automaticamente",5,
     function() _G.autoV4=true; task.spawn(function() while _G.autoV4 do task.wait(0.5)
         pcall(function() LP.Backpack.Awakening.RemoteFunction:InvokeServer(true) end) end end) end,
     function() _G.autoV4=false end)
-local RmvCard=MkBlock(PgSh,"[Click] Remove TouchInterest",20)
+MkSec(PgSh,"Sistema",7)
+local RmvCard=MkBlock(PgSh,"[Click] Remove TouchInterest",9)
 local RmvHit=Instance.new("TextButton"); RmvHit.Size=UDim2.fromScale(1,1); RmvHit.BackgroundTransparency=1; RmvHit.Text=""; RmvHit.ZIndex=17; RmvHit.Parent=RmvCard
 RmvHit.MouseButton1Click:Connect(function() for _,d in pairs(game:GetDescendants()) do if d:IsA("TouchTransmitter") then d:Destroy() end end end)
+
 Pages["Shop"]=PgSh
 
 -- VISUALS
 local PgVis=MkPage("Visuals")
 MkSec(PgVis,"Fast Flags",1)
-local FF={["DFIntMaxActiveAnimationTracks"]="0",["DFIntReplicatorAnimationTrackLimitPerAnimator"]="-1",
-    ["DFIntAnimationLodFacsDistanceMin"]="0",["DFIntAnimationLodFacsDistanceMax"]="0",
-    ["TextureCompositorActiveJobs"]="0",["RenderShadowmapBias"]="75",
-    ["CSGLevelOfDetailSwitchingDistanceL34"]="0",["CSGLevelOfDetailSwitchingDistanceL23"]="0",
-    ["CSGLevelOfDetailSwitchingDistance"]="0",["PerformanceControlTextureQualityBestUtility"]="-1",
-    ["IncludePowerSaverMode"]="True",["DebugForceFSMCPULightCulling"]="True",
-    ["TextureQualityOverride"]="0",["TextureQualityOverrideEnabled"]="True",
-    ["DisablePostFx"]="True",["TaskSchedulerTargetFps"]="9999999",["DebugDisplayFPS"]="True",
-    ["FFlagFastGPULightCulling3"]="True",["FFlagGpuGeometryManager7"]="True",
-    ["FFlagRenderCheckThreading"]="True",["FFlagGraphicsEnableD3D10Compute"]="True",
-    ["DFIntS2PhysicsSenderRate"]="250"}
+-- Modo seguro: solo visuales ligeros (sin red/fisicas/scheduler/telemetria).
+local FF={
+    ["FFlagDisablePostFx"]="True",
+    ["DFFlagTextureQualityOverrideEnabled"]="True"
+}
+
 local function CF(z) return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString",""):gsub("FLog",""):gsub("^FFlag",""):gsub("^DFint",""):gsub("^FInt","") end
-MkToggle(PgVis,"Fast Flags (Better FPS)","Optimiza graficos, red y telemetria",3,
+MkToggle(PgVis,"Fast Flags (Modo Seguro)","Optimiza solo visuales para reducir riesgos",3,
     function() if setfflag then task.spawn(function() for k,v in pairs(FF) do local c=CF(k)
         if not pcall(function() if getfflag(c) then setfflag(c,v) end end) then
             pcall(function() if getfflag(k) then setfflag(k,v) end end) end end end) end end)
-MkSec(PgVis,"ESP",5)
-MkToggle(PgVis,"ESP Jugadores","Cajas y nombres visibles",7, function() ESP_On=true end, function() ESP_On=false end)
 Pages["Visuals"]=PgVis
 
 -- ══════════════════════════════════════
@@ -996,20 +1198,32 @@ UIS.InputChanged:Connect(function(i)
     if DSQDragging and DSQDragStart and DSQStartPos then
         local dv=i.Position-DSQDragStart
         if dv.Magnitude>4 then DSQMoved=true end
-        DSQuick.Position=UDim2.new(DSQStartPos.X.Scale,DSQStartPos.X.Offset+dv.X,DSQStartPos.Y.Scale,DSQStartPos.Y.Offset+dv.Y)
+        local vp=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
+        local nx=math.clamp(DSQStartPos.X.Offset+dv.X,0,vp.X-DSQuick.AbsoluteSize.X)
+        local ny=math.clamp(DSQStartPos.Y.Offset+dv.Y,0,vp.Y-DSQuick.AbsoluteSize.Y)
+        DSQuick.Position=UDim2.new(0,nx,0,ny)
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        DSQDragging=false
     end
 end)
 
 -- Apagado total
 local function ShutdownAll()
     MasterEnabled=false; AutoSkillEnabled=false; FastAtk=false; FruitAtk=false
-    InfJump=false; InstakillActive=false; KrazyAtk2=false; ESP_On=false
-    XSAutoLevelEnabled=false; XSAutoChestEnabled=false; XSFarmState="IDLE"; XSFarmTarget=nil
+    InfJump=false; InstakillActive=false; FastAtkV2=false; ESP_On=false
+    AutoLevelEnabled=false; AutoChestEnabled=false; AutoFarmState="IDLE"; AutoFarmTarget=nil
+    AutoFarmNearestEnabled=false; AutoFarmBossEnabled=false; AutoFarmAllBossesEnabled=false
+    AutoBusoEnabled=false
+    AutoClickEnabled=false; BringNPCEnabled=false
+    AutoStatsEnabled=false; AutoSkillsEnabled=false; table.clear(ActiveStats)
     SpaceHeld=false; _G.WSOn=false; _G.autoV4=false; _G.Unbreakable=false
     _G.TweenTPOn=false; _G.SpecOn=false
     pcall(function() getgenv().HitboxExpander=false end)
     if FaConn then FaConn:Disconnect(); FaConn=nil end
-    if KA2Conn then KA2Conn:Disconnect(); KA2Conn=nil end
+    if FastV2Conn then FastV2Conn:Disconnect(); FastV2Conn=nil end
     if NoclipConn then NoclipConn:Disconnect(); NoclipConn=nil end
     SetNoclip(false)
     if _G.ASC then _G.ASC:Disconnect(); _G.ASC=nil end
@@ -1021,7 +1235,7 @@ local function ShutdownAll()
     if Fr166 then task.cancel(Fr166); Fr166=nil end
     if Fr3 then task.cancel(Fr3); Fr3=nil end
     if FrConn then task.cancel(FrConn); FrConn=nil end
-    local p=workspace:FindFirstChild(XSFarmPlatName); if p then p:Destroy() end
+    local p=workspace:FindFirstChild(AutoFarmPlatName); if p then p:Destroy() end
     if LP.Character and LP.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject=LP.Character.Humanoid end
     for _,d in pairs(ESP_Obj) do pcall(function() d.Box:Remove() end); pcall(function() d.Name:Remove() end) end
     table.clear(ESP_Obj)
@@ -1049,3 +1263,7 @@ TS2:Create(Win,TweenInfo.new(0.35,Enum.EasingStyle.Quad,Enum.EasingDirection.Out
     end) -- fin Btn click
 end)     -- fin AnimateLoad
 end) -- fin task.spawn
+
+
+
+
