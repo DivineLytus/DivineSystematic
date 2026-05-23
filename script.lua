@@ -155,7 +155,6 @@ local FastAttackConnection  = nil
 local FruitAttackConnection = nil
 local FruitAttackConn1      = nil
 local FruitAttackConn12     = nil
-local FruitAttackConn166    = nil
 local KrazyAtack2Connection = nil
 local SpaceHeld             = false
 local AttackSpeed           = 0.0
@@ -831,33 +830,32 @@ end)
 local PgVisuals=MakePage("Visuals")
 MkSecHeader(PgVisuals,"Fast Flags",1)
 local FAST_FLAGS={
-  "DFIntMaxActiveAnimationTracks": "0",
-  "DFIntReplicatorAnimationTrackLimitPerAnimator": "-1",
-  "DFIntAnimationLodFacsDistanceMin": "0",
-  "DFIntAnimationLodFacsDistanceMax": "0",
-  "TextureCompositorActiveJobs": "0",
-  "RenderShadowmapBias": "75",
-  "CSGLevelOfDetailSwitchingDistanceL34": "0",
-  "CSGLevelOfDetailSwitchingDistanceL23": "0",
-  "CSGLevelOfDetailSwitchingDistanceL12": "0",
-  "CSGLevelOfDetailSwitchingDistance": "0",
-  "TerrainArraySliceSize": "0",
-  "PerformanceControlTextureQualityBestUtility": "-1",
-  "RenderUseTextureManager224": "False",
-  "IncludePowerSaverMode": "True",
-  "EnablePowerTraceModule": "True",
-  "DebugForceFSMCPULightCulling": "True",
-  "DoNotSkipMipsBasedOnSystemMemoryPS": "True",
-  "DebugLimitMinTextureResolutionWhenSkipMips": "9999999999999999",
-  "TM2SkipMipsForUnstreamable2": "True",
-  "DebugTextureManagerSkipMips": "10",
-  "TextureQualityOverride": "0",
-  "TextureQualityOverrideEnabled": "True",
-  "DisablePostFx": "True",
-  "TaskSchedulerTargetFps": "9999999",
-  "TaskSchedulerLimitTargetFpsTo2402": "False",
-  "DebugDisplayFPS": "True",
-  "DebugSkyGray": "True"
+  ["DFIntMaxActiveAnimationTracks"]: "0",
+  ["DFIntReplicatorAnimationTrackLimitPerAnimator"]: "-1",
+  ["DFIntAnimationLodFacsDistanceMin"]: "0",
+  ["DFIntAnimationLodFacsDistanceMax"]: "0",
+  ["TextureCompositorActiveJobs"]: "0",
+  ["RenderShadowmapBias"]: "75",
+  ["CSGLevelOfDetailSwitchingDistanceL34"]: "0",
+  ["CSGLevelOfDetailSwitchingDistanceL23"]: "0",
+  ["CSGLevelOfDetailSwitchingDistanceL12"]: "0",
+  ["CSGLevelOfDetailSwitchingDistance"]: "0",
+  ["TerrainArraySliceSize"]: "0",
+  ["PerformanceControlTextureQualityBestUtility"]: "-1",
+  ["RenderUseTextureManager224"]: "False",
+  ["IncludePowerSaverMode"]: "True",
+  ["EnablePowerTraceModule"]: "True",
+  ["DebugForceFSMCPULightCulling"]: "True",
+  ["DoNotSkipMipsBasedOnSystemMemoryPS"]: "True",
+  ["DebugLimitMinTextureResolutionWhenSkipMips"]: "9999999999999999",
+  ["TM2SkipMipsForUnstreamable2"]: "True",
+  ["DebugTextureManagerSkipMips"]: "10",
+  ["TextureQualityOverride"]: "0",
+  ["TextureQualityOverrideEnabled"]: "True",
+  ["DisablePostFx"]: "True",
+  ["TaskSchedulerTargetFps"]: "9999999",
+  ["DebugDisplayFPS"]: "True",
+  ["DebugSkyGray"]: "True",
 }
 local function CleanFlag(z)
     return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString",""):gsub("FLog",""):gsub("^FFlag",""):gsub("^DFint",""):gsub("^FInt","")
