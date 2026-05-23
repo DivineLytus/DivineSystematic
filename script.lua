@@ -6,7 +6,7 @@ local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-local HUB_NAME="Divine Systematic"; local HUB_VERSION="v1.0"; local HUB_SUBTITLE="Blox Fruits Edition"
+local HUB_NAME="Divine Systematic"; local HUB_VERSION="v2.0"; local HUB_SUBTITLE="Blox Fruits Edition"
 local LOAD_STEPS={"Iniciando sistema...","Cargando datos...","Verificando conexion...","Preparando funciones...","Listo."}
 local C={BG=Color3.fromRGB(5,5,16),CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,255,80),DIM=Color3.fromRGB(0,160,160)}
 
@@ -98,12 +98,24 @@ _G.WSVal=40; _G.WSOn=false; _G.autoV4=false; _G.Unbreakable=false
 local FaConn=nil; local FrConn=nil; local Fr1=nil; local Fr12=nil; local Fr166=nil; local Fr3=nil; local KA2Conn=nil
 local SelectedPlayer=nil
 
+-- XS HUB merge (subir nivel + cajas)
+local CommF=nil
+local XSAutoLevelEnabled=false; local XSAutoChestEnabled=false
+local XSFarmState="IDLE"; local XSFarmTarget=nil
+local XSTeleportTweenSpeed=300; local XSFarmPlatName="XSFarmPlatMerged"
+local XSFarmPullRadius=350; local XSFarmYOffset=30
+local XSChestCache={}; local XSLastChestScan=0
+
 local SPECIAL={"Leviathan","Tail","Segment","Tongue","Sea Beast","TerrorShark","Piranha","Ghost Ship","Fishman","Boss"}
 
 local RegHit,RegAtk
 pcall(function()
     local Net=RepSto:WaitForChild("Modules",5):WaitForChild("Net",5)
     RegHit=Net["RE/RegisterHit"]; RegAtk=Net["RE/RegisterAttack"]
+end)
+pcall(function()
+    local Rm=RepSto:FindFirstChild("Remotes")
+    if Rm then CommF=Rm:FindFirstChild("CommF_") end
 end)
 
 -- Bypasses
@@ -123,6 +135,173 @@ task.spawn(function() pcall(function()
         return ONC(s,...) end))
     GS.ErrorMessageChanged:Connect(function() if GS:GetErrorMessage()~="" then Rejoin() end end)
 end) end)
+
+-- XS HUB quest data (Sea 1)
+local XSLevelQuests={
+    {lvl=1,q="BanditQuest1",ql=1,name="Bandit",giver="Bandit Quest Giver",island="Town"},
+    {lvl=10,q="JungleQuest",ql=1,name="Monkey",giver="Adventurer",island="Jungle"},
+    {lvl=15,q="JungleQuest",ql=2,name="Gorilla",giver="Adventurer",island="Jungle"},
+    {lvl=30,q="BuggyQuest1",ql=1,name="Pirate",giver="Pirate Adventurer",island="Pirate"},
+    {lvl=40,q="BuggyQuest1",ql=2,name="Brute",giver="Pirate Adventurer",island="Pirate"},
+    {lvl=60,q="DesertQuest",ql=1,name="Desert Bandit",giver="Desert Adventurer",island="Desert"},
+    {lvl=75,q="DesertQuest",ql=2,name="Desert Officer",giver="Desert Adventurer",island="Desert"},
+    {lvl=90,q="SnowQuest",ql=1,name="Snow Bandit",giver="Villager",island="Snow"},
+    {lvl=100,q="SnowQuest",ql=2,name="Snowman",giver="Villager",island="Snow"},
+    {lvl=120,q="MarineQuest2",ql=1,name="Chief Petty Officer",giver="Marine",island="Marine"},
+    {lvl=130,q="MarineQuest2",ql=2,name="Vice Admiral",giver="Marine",island="Marine",isBoss=true},
+    {lvl=150,q="SkyQuest",ql=1,name="Sky Bandit",giver="Sky Adventurer",island="Sky"},
+    {lvl=175,q="SkyQuest",ql=2,name="Dark Master",giver="Sky Adventurer",island="Sky"},
+    {lvl=190,q="PrisonerQuest",ql=1,name="Prisoner",giver="Jail Keeper",island="Prison"},
+    {lvl=210,q="PrisonerQuest",ql=2,name="Dangerous Prisoner",giver="Jail Keeper",island="Prison"},
+    {lvl=250,q="ColosseumQuest",ql=1,name="Toga Warrior",giver="Colosseum Quest Giver",island="Colosseum"},
+    {lvl=275,q="ColosseumQuest",ql=2,name="Gladiator",giver="Colosseum Quest Giver",island="Colosseum"},
+    {lvl=300,q="MagmaQuest",ql=1,name="Military Soldier",giver="Volcano Adventurer",island="Magma"},
+    {lvl=325,q="MagmaQuest",ql=2,name="Military Spy",giver="Volcano Adventurer",island="Magma"},
+    {lvl=375,q="FishmanQuest",ql=1,name="Fishman Warrior",giver="Fishman Quest Giver",island="Fishman"},
+    {lvl=400,q="FishmanQuest",ql=2,name="Fishman Commando",giver="Fishman Quest Giver",island="Fishman"},
+    {lvl=450,q="SkyExp1Quest",ql=1,name="God's Guard",giver="Sky Adventurer",island="Sky"},
+    {lvl=475,q="SkyExp1Quest",ql=2,name="Shanda",giver="Sky Adventurer",island="Sky"},
+    {lvl=525,q="SkyExp2Quest",ql=1,name="Royal Squad",giver="Sky Adventurer",island="Sky"},
+    {lvl=550,q="SkyExp2Quest",ql=2,name="Royal Soldier",giver="Sky Adventurer",island="Sky"},
+    {lvl=625,q="FountainQuest",ql=1,name="Galley Pirate",giver="Fountain Quest Giver",island="Fountain"},
+    {lvl=650,q="FountainQuest",ql=2,name="Galley Captain",giver="Fountain Quest Giver",island="Fountain"}
+}
+
+local function XSTeleport(cf)
+    local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart")
+    if not c or not hrp or not cf then return end
+    local d=(hrp.Position-cf.Position).Magnitude
+    if d<50 then c:PivotTo(cf); return end
+    local tw=TS2:Create(hrp,TweenInfo.new(d/XSTeleportTweenSpeed,Enum.EasingStyle.Linear),{CFrame=cf})
+    local bv=Instance.new("BodyVelocity"); bv.MaxForce=Vector3.new(math.huge,math.huge,math.huge); bv.Velocity=Vector3.new(0,0,0); bv.Parent=hrp
+    local nc=RS.Stepped:Connect(function()
+        for _,v in ipairs(c:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end
+    end)
+    tw:Play(); tw.Completed:Wait(); bv:Destroy(); nc:Disconnect()
+end
+
+local function XSHasQuest()
+    local pgui=LP:FindFirstChild("PlayerGui")
+    return pgui and pgui:FindFirstChild("Main") and pgui.Main:FindFirstChild("Quest") and pgui.Main.Quest.Visible or false
+end
+
+local function XSMatchEnemyName(npcName,targetName)
+    if not npcName or not targetName then return false end
+    if npcName==targetName then return true end
+    local n=string.lower(npcName); local t=string.lower(targetName)
+    if string.find(n,t) then
+        if t=="gorilla" and string.find(n,"king") then return false end
+        if t=="bandit" and (string.find(n,"desert") or string.find(n,"snow") or string.find(n,"sky")) then return false end
+        return true
+    end
+    return false
+end
+
+local function XSGetTargetEnemyNameFromQuest()
+    local pgui=LP:FindFirstChild("PlayerGui")
+    local main=pgui and pgui:FindFirstChild("Main")
+    local quest=main and main:FindFirstChild("Quest")
+    if not quest or not quest.Visible then return nil end
+    local title=quest:FindFirstChild("Container") and quest.Container:FindFirstChild("QuestTitle") and quest.Container.QuestTitle:FindFirstChild("Title")
+    if not title or not title.Text then return nil end
+    local questText=title.Text; local best=nil; local bestLen=0
+    for _,q in ipairs(XSLevelQuests) do
+        if string.find(string.lower(questText),string.lower(q.name)) and #q.name>bestLen then best=q.name; bestLen=#q.name end
+    end
+    local en=workspace:FindFirstChild("Enemies")
+    if en then
+        for _,npc in ipairs(en:GetChildren()) do
+            if string.find(string.lower(questText),string.lower(npc.Name)) and #npc.Name>bestLen then best=npc.Name; bestLen=#npc.Name end
+        end
+    end
+    return best
+end
+
+local function XSIsEnemyAlive(enemyName)
+    local en=workspace:FindFirstChild("Enemies")
+    if not en then return false end
+    for _,npc in ipairs(en:GetChildren()) do
+        local hm=npc:FindFirstChildOfClass("Humanoid")
+        if XSMatchEnemyName(npc.Name,enemyName) and hm and hm.Health>0 then return true end
+    end
+    return false
+end
+
+local function XSGetBestQuestData()
+    local data=LP:FindFirstChild("Data")
+    local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
+    local best=XSLevelQuests[1]
+    for i=1,#XSLevelQuests do
+        local q=XSLevelQuests[i]
+        if lvl>=q.lvl then
+            if q.isBoss then if XSIsEnemyAlive(q.name) then best=q end
+            else best=q end
+        else break end
+    end
+    return best
+end
+
+local function XSGetIslandPosition(keyword)
+    local wo=workspace:FindFirstChild("_WorldOrigin")
+    local locs=wo and wo:FindFirstChild("Locations")
+    if not locs then return nil end
+    for _,v in ipairs(locs:GetChildren()) do if string.find(string.lower(v.Name),string.lower(keyword)) then return v.Position end end
+    return nil
+end
+
+local XSCachedSpawns={}
+local function XSGetEnemySpawnPosition(enemyName)
+    if XSCachedSpawns[enemyName] and XSCachedSpawns[enemyName].Y>0 then return XSCachedSpawns[enemyName] end
+    local wo=workspace:FindFirstChild("_WorldOrigin")
+    local spawns=wo and wo:FindFirstChild("EnemySpawns")
+    if spawns then
+        local best=nil; local diffBest=math.huge
+        for _,sp in ipairs(spawns:GetChildren()) do
+            if string.find(string.lower(sp.Name),string.lower(enemyName)) and sp.Position.Y>0 then
+                local diff=math.abs(#sp.Name-#enemyName)
+                if diff<diffBest then diffBest=diff; best=sp.Position end
+            end
+        end
+        if best then XSCachedSpawns[enemyName]=best; return best end
+    end
+    local en=workspace:FindFirstChild("Enemies")
+    if en then
+        for _,npc in ipairs(en:GetChildren()) do
+            local hrp=npc:FindFirstChild("HumanoidRootPart")
+            if hrp and XSMatchEnemyName(npc.Name,enemyName) and hrp.Position.Y>0 then
+                XSCachedSpawns[enemyName]=hrp.Position; return hrp.Position
+            end
+        end
+    end
+    return nil
+end
+
+local function XSGetQuestGiverPosition(qData)
+    if not qData or not qData.giver then return nil end
+    local npcs=workspace:FindFirstChild("NPCs"); if not npcs then return nil end
+    local spawnPos=XSGetEnemySpawnPosition(qData.name) or XSGetIslandPosition(qData.island)
+    local best=nil; local minDist=math.huge
+    for _,npc in ipairs(npcs:GetChildren()) do
+        local hrp=npc:FindFirstChild("HumanoidRootPart")
+        if hrp and string.find(string.lower(npc.Name),string.lower(qData.giver)) then
+            local d=spawnPos and (hrp.Position-spawnPos).Magnitude or 0
+            if d<minDist then minDist=d; best=hrp.CFrame end
+        end
+    end
+    return best
+end
+
+local function XSGatherTargets(myHRP,targetName,maxR)
+    local t={}; local en=workspace:FindFirstChild("Enemies")
+    if not en or not myHRP or not targetName then return t end
+    for _,npc in ipairs(en:GetChildren()) do
+        local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
+        if hm and hrp and hm.Health>0 and XSMatchEnemyName(npc.Name,targetName) and (hrp.Position-myHRP.Position).Magnitude<=maxR then
+            table.insert(t,{npc,npc:FindFirstChild("Head") or hrp}); if #t>=8 then break end
+        end
+    end
+    return t
+end
 
 -- Funciones combate
 local function FireAtk(t) if not RegAtk or not RegHit or #t==0 then return end
@@ -210,6 +389,131 @@ UIS.InputEnded:Connect(function(i) if i.KeyCode==Enum.KeyCode.Space then SpaceHe
 RS.Heartbeat:Connect(function() if InfJump and SpaceHeld then local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.Velocity=Vector3.new(hrp.Velocity.X,50,hrp.Velocity.Z) end end end)
 
+-- XS HUB merge: auto subir nivel
+task.spawn(function()
+    while task.wait(0.15) do
+        if not XSAutoLevelEnabled then
+            XSFarmState="IDLE"; XSFarmTarget=nil
+            local oldPlat=workspace:FindFirstChild(XSFarmPlatName); if oldPlat then oldPlat:Destroy() end
+            continue
+        end
+
+        local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); local hm=c and c:FindFirstChildOfClass("Humanoid")
+        if not c or not hrp or not hm or hm.Health<=0 then continue end
+
+        local plat=workspace:FindFirstChild(XSFarmPlatName)
+        if not plat then
+            plat=Instance.new("Part"); plat.Name=XSFarmPlatName; plat.Anchored=true; plat.CanCollide=false; plat.Transparency=1
+            plat.Size=Vector3.new(15,1,15); plat.CFrame=hrp.CFrame*CFrame.new(0,-3.5,0); plat.Parent=workspace
+        end
+
+        local qData=XSGetBestQuestData(); if not qData then continue end
+        local targetEnemyName=XSGetTargetEnemyNameFromQuest() or qData.name
+        XSFarmTarget=targetEnemyName
+
+        if not XSHasQuest() then
+            XSFarmState="GETTING_QUEST"
+            local giverCF=XSGetQuestGiverPosition(qData)
+            if giverCF then
+                if (hrp.Position-giverCF.Position).Magnitude>15 then XSTeleport(giverCF)
+                else
+                    hrp.CFrame=giverCF; task.wait(0.2)
+                    if CommF then pcall(function() CommF:InvokeServer("StartQuest",qData.q,qData.ql) end) end
+                end
+            else
+                local islandPos=XSGetIslandPosition(qData.island)
+                if islandPos then XSTeleport(CFrame.new(islandPos)*CFrame.new(0,30,0)) end
+            end
+            continue
+        end
+
+        XSFarmState="FARMING"
+        local en=workspace:FindFirstChild("Enemies"); local firstNPC=nil; local minDist=math.huge
+        if en then
+            for _,npc in ipairs(en:GetChildren()) do
+                if XSMatchEnemyName(npc.Name,targetEnemyName) then
+                    local nHrp=npc:FindFirstChild("HumanoidRootPart"); local nHm=npc:FindFirstChildOfClass("Humanoid")
+                    if nHrp and nHm and nHm.Health>0 and nHrp.Position.Y>0 then
+                        local d=(nHrp.Position-hrp.Position).Magnitude
+                        if d<minDist then minDist=d; firstNPC=npc end
+                    end
+                end
+            end
+        end
+
+        if firstNPC then
+            local nHrp=firstNPC:FindFirstChild("HumanoidRootPart")
+            if nHrp then
+                local targetCF=CFrame.new(nHrp.Position.X,nHrp.Position.Y+XSFarmYOffset,nHrp.Position.Z)
+                plat.CFrame=targetCF
+                if (hrp.Position-plat.Position).Magnitude>15 then XSTeleport(plat.CFrame*CFrame.new(0,3.5,0))
+                else hrp.CFrame=plat.CFrame*CFrame.new(0,3.5,0) end
+                hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+                local pullCF=plat.CFrame*CFrame.new(0,-30,0)
+                if en then
+                    for _,npc in ipairs(en:GetChildren()) do
+                        if XSMatchEnemyName(npc.Name,targetEnemyName) then
+                            local oHrp=npc:FindFirstChild("HumanoidRootPart"); local oHm=npc:FindFirstChildOfClass("Humanoid")
+                            if oHrp and oHm and oHm.Health>0 and (oHrp.Position-pullCF.Position).Magnitude<XSFarmPullRadius then
+                                oHrp.CFrame=pullCF; oHrp.CanCollide=false; oHrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+                                oHm.WalkSpeed=0; oHm.JumpPower=0
+                            end
+                        end
+                    end
+                end
+                local targets=XSGatherTargets(hrp,targetEnemyName,FastAtkRange)
+                if #targets>0 then FireAtk(targets) end
+            end
+        else
+            XSFarmState="WAITING"
+            local spawnPos=XSGetEnemySpawnPosition(targetEnemyName) or XSGetIslandPosition(qData.island)
+            if spawnPos then
+                local hoverCF=CFrame.new(spawnPos)*CFrame.new(0,30,0)
+                plat.CFrame=hoverCF
+                if (hrp.Position-hoverCF.Position).Magnitude>20 then XSTeleport(hoverCF*CFrame.new(0,3.5,0))
+                else hrp.CFrame=hoverCF*CFrame.new(0,3.5,0) end
+                hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+            end
+        end
+    end
+end)
+
+-- XS HUB merge: auto cajas
+local function XSGetChests()
+    if tick()-XSLastChestScan>15 or #XSChestCache==0 then
+        XSLastChestScan=tick(); table.clear(XSChestCache)
+        pcall(function()
+            for _,v in ipairs(workspace:GetDescendants()) do
+                if string.find(v.Name,"Chest") and v:IsA("BasePart") then table.insert(XSChestCache,v) end
+            end
+        end)
+    end
+    local active={}
+    for _,ch in ipairs(XSChestCache) do if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then table.insert(active,ch) end end
+    return active
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if not XSAutoChestEnabled then continue end
+        local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); if not hrp then continue end
+        local chests=XSGetChests(); if #chests==0 then continue end
+        table.sort(chests,function(a,b) return (hrp.Position-a.Position).Magnitude<(hrp.Position-b.Position).Magnitude end)
+        for _,ch in ipairs(chests) do
+            if not XSAutoChestEnabled then break end
+            if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then
+                local cf=ch.CFrame
+                if (hrp.Position-cf.Position).Magnitude>15 then XSTeleport(cf) else hrp.CFrame=cf end
+                task.wait(0.2)
+                if firetouchinterest and ch:FindFirstChild("TouchInterest") then
+                    firetouchinterest(hrp,ch,0); task.wait(0.01); firetouchinterest(hrp,ch,1)
+                end
+                task.wait(0.2)
+            end
+        end
+    end
+end)
+
 -- ESP
 local ESP_Obj={}
 local function MkESP(p) if p==LP then return end
@@ -244,21 +548,20 @@ local WIN_W=420; local WIN_H=285; local TOP_H=30; local SIDE_W=92; local CONT_W=
 local SG2=Instance.new("ScreenGui"); SG2.Name="CyberpunkMain"; SG2.ResetOnSpawn=false
 SG2.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() SG2.IgnoreGuiInset=true end); SG2.Parent=PGui2
 
--- Mini DS
-local DSMini=Instance.new("Frame"); DSMini.Size=UDim2.new(0,64,0,64); DSMini.Position=UDim2.new(0,16,1,-80)
-DSMini.BackgroundColor3=C2.BG; DSMini.BorderSizePixel=0; DSMini.Visible=false; DSMini.ZIndex=30; DSMini.Parent=SG2
-Instance.new("UICorner",DSMini).CornerRadius=UDim.new(0,6)
-local DSMSt=Instance.new("UIStroke"); DSMSt.Color=C2.CYAN; DSMSt.Thickness=1.5; DSMSt.Transparency=0.3; DSMSt.Parent=DSMini
-local MiniLbl=Instance.new("TextLabel"); MiniLbl.Size=UDim2.fromScale(1,1); MiniLbl.BackgroundTransparency=1
-MiniLbl.BorderSizePixel=0; MiniLbl.Text="DS"; MiniLbl.TextColor3=C2.CYAN; MiniLbl.Font=Enum.Font.GothamBold
-MiniLbl.TextSize=26; MiniLbl.TextXAlignment=Enum.TextXAlignment.Center; MiniLbl.TextYAlignment=Enum.TextYAlignment.Center
-MiniLbl.ZIndex=31; MiniLbl.Parent=DSMini
-local DSMBtn=Instance.new("TextButton"); DSMBtn.Size=UDim2.fromScale(1,1); DSMBtn.BackgroundTransparency=1
-DSMBtn.Text=""; DSMBtn.ZIndex=35; DSMBtn.Parent=DSMini
-local mDrag,mDS,mSP,mMv=false,nil,nil,false
-DSMini.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-    mDrag=true; mMv=false; mDS=i.Position; mSP=DSMini.Position end end)
-DSMini.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then mDrag=false end end)
+-- DS quick toggle (mostrar/ocultar HUD)
+local DSQuick=Instance.new("Frame"); DSQuick.Size=UDim2.new(0,56,0,56); DSQuick.Position=UDim2.new(0,14,1,-74)
+DSQuick.BackgroundColor3=C2.BG; DSQuick.BorderSizePixel=0; DSQuick.ZIndex=40; DSQuick.Parent=SG2
+Instance.new("UICorner",DSQuick).CornerRadius=UDim.new(0,6)
+local DSQSt=Instance.new("UIStroke"); DSQSt.Color=C2.CYAN; DSQSt.Thickness=1.3; DSQSt.Transparency=0.25; DSQSt.Parent=DSQuick
+local DSQLabel=Instance.new("TextLabel"); DSQLabel.Size=UDim2.fromScale(1,1); DSQLabel.BackgroundTransparency=1
+DSQLabel.BorderSizePixel=0; DSQLabel.Text="DS"; DSQLabel.TextColor3=C2.CYAN; DSQLabel.Font=Enum.Font.GothamBold
+DSQLabel.TextSize=23; DSQLabel.TextXAlignment=Enum.TextXAlignment.Center; DSQLabel.TextYAlignment=Enum.TextYAlignment.Center
+DSQLabel.ZIndex=41; DSQLabel.Parent=DSQuick
+local DSQBtn=Instance.new("TextButton"); DSQBtn.Size=UDim2.fromScale(1,1); DSQBtn.BackgroundTransparency=1
+DSQBtn.Text=""; DSQBtn.AutoButtonColor=false; DSQBtn.ZIndex=42; DSQBtn.Parent=DSQuick
+local HUDHidden=false
+DSQBtn.MouseEnter:Connect(function() if not HUDHidden then DSQSt.Color=C2.PINK; DSQLabel.TextColor3=C2.PINK end end)
+DSQBtn.MouseLeave:Connect(function() if not HUDHidden then DSQSt.Color=C2.CYAN; DSQLabel.TextColor3=C2.CYAN end end)
 
 -- Ventana principal
 local Win=Instance.new("Frame"); Win.Name="Window"; Win.Size=UDim2.new(0,WIN_W,0,WIN_H)
@@ -293,7 +596,7 @@ local function MkTBtn(xOff,lbl,col)
     Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
     Instance.new("UIStroke",b).Color=col; return b
 end
-local BtnMin=MkTBtn(-28,"-",C2.DIM); local BtnClose=MkTBtn(-4,"X",C2.PINK)
+local BtnClose=MkTBtn(-4,"X",C2.PINK)
 
 -- Sidebar
 local SB=Instance.new("Frame"); SB.Name="Sidebar"; SB.Size=UDim2.new(0,SIDE_W,0,CONT_H)
@@ -539,6 +842,17 @@ MkSec(PgF,"Movimiento",25)
 MkToggle(PgF,"Infinite Jump","Salta sin limite",27, function() InfJump=true end, function() InfJump=false end)
 MkToggle(PgF,"WalkSpeed","Velocidad personalizada",29, function() _G.WSOn=true end, function() _G.WSOn=false end)
 MkSlider(PgF,"Velocidad","WalkSpeed actual",31,16,500,40,5,function(v) _G.WSVal=v end)
+MkSec(PgF,"XS HUB Merge",33)
+MkToggle(PgF,"Auto Farm Nivel (XS)","Sube nivel automatico con quests (Sea 1)",35,
+    function() XSAutoLevelEnabled=true end,
+    function()
+        XSAutoLevelEnabled=false; XSFarmState="IDLE"; XSFarmTarget=nil
+        local p=workspace:FindFirstChild(XSFarmPlatName); if p then p:Destroy() end
+    end)
+MkToggle(PgF,"Auto Chest (XS)","Farm de cajas (Beli)",37,
+    function() XSAutoChestEnabled=true end,
+    function() XSAutoChestEnabled=false end)
+MkSlider(PgF,"Tween Speed XS","Velocidad de TP del auto farm/cajas",39,120,800,300,20,function(v) XSTeleportTweenSpeed=v end)
 Pages["Farm"]=PgF
 
 -- PVP
@@ -626,7 +940,7 @@ local FF={["DFIntMaxActiveAnimationTracks"]="0",["DFIntReplicatorAnimationTrackL
     ["DisablePostFx"]="True",["TaskSchedulerTargetFps"]="9999999",["DebugDisplayFPS"]="True",
     ["FFlagFastGPULightCulling3"]="True",["FFlagGpuGeometryManager7"]="True",
     ["FFlagRenderCheckThreading"]="True",["FFlagGraphicsEnableD3D10Compute"]="True",
-    ["DFIntS2PhysicsSenderRate"]="250",["FIntRenderGrassDetailStrands"]="0",["FIntFRMMaxGrassDistance"]="0"}
+    ["DFIntS2PhysicsSenderRate"]="250"}
 local function CF(z) return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString",""):gsub("FLog",""):gsub("^FFlag",""):gsub("^DFint",""):gsub("^FInt","") end
 MkToggle(PgVis,"Fast Flags (Better FPS)","Optimiza graficos, red y telemetria",3,
     function() if setfflag then task.spawn(function() for k,v in pairs(FF) do local c=CF(k)
@@ -634,9 +948,6 @@ MkToggle(PgVis,"Fast Flags (Better FPS)","Optimiza graficos, red y telemetria",3
             pcall(function() if getfflag(k) then setfflag(k,v) end end) end end end) end end)
 MkSec(PgVis,"ESP",5)
 MkToggle(PgVis,"ESP Jugadores","Cajas y nombres visibles",7, function() ESP_On=true end, function() ESP_On=false end)
-MkSec(PgVis,"Effects",9)
-MkToggle(PgVis,"Sin Hierba","Elimina hierba para mas FPS",11,
-    function() pcall(function() if setfflag then setfflag("RenderGrassDetailStrands","0") end end) end)
 Pages["Visuals"]=PgVis
 
 -- ══════════════════════════════════════
@@ -671,26 +982,46 @@ TB.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseBu
 UIS.InputChanged:Connect(function(i)
     if i.UserInputType~=Enum.UserInputType.MouseMovement and i.UserInputType~=Enum.UserInputType.Touch then return end
     if d2 and dS2 then local dv=i.Position-dS2; Win.Position=UDim2.new(wS2.X.Scale,wS2.X.Offset+dv.X,wS2.Y.Scale,wS2.Y.Offset+dv.Y) end
-    if mDrag and mDS then local dv=i.Position-mDS; if dv.Magnitude>4 then mMv=true end
-        DSMini.Position=UDim2.new(mSP.X.Scale,mSP.X.Offset+dv.X,mSP.Y.Scale,mSP.Y.Offset+dv.Y) end end)
+end)
 
--- Minimizar
-local minm=false
-BtnMin.MouseButton1Click:Connect(function() minm=not minm; SB.Visible=not minm; Cont.Visible=not minm
-    Win.Size=minm and UDim2.new(0,WIN_W,0,TOP_H) or UDim2.new(0,WIN_W,0,WIN_H); BtnMin.Text=minm and "[]" or "-" end)
+-- Apagado total
+local function ShutdownAll()
+    MasterEnabled=false; AutoSkillEnabled=false; FastAtk=false; FruitAtk=false
+    InfJump=false; InstakillActive=false; KrazyAtk2=false; ESP_On=false
+    XSAutoLevelEnabled=false; XSAutoChestEnabled=false; XSFarmState="IDLE"; XSFarmTarget=nil
+    SpaceHeld=false; _G.WSOn=false; _G.autoV4=false; _G.Unbreakable=false
+    _G.TweenTPOn=false; _G.SpecOn=false
+    pcall(function() getgenv().HitboxExpander=false end)
+    if FaConn then FaConn:Disconnect(); FaConn=nil end
+    if KA2Conn then KA2Conn:Disconnect(); KA2Conn=nil end
+    if NoclipConn then NoclipConn:Disconnect(); NoclipConn=nil end
+    SetNoclip(false)
+    if _G.ASC then _G.ASC:Disconnect(); _G.ASC=nil end
+    if _G.SpecConn then _G.SpecConn:Disconnect(); _G.SpecConn=nil end
+    if _G.TwTPConn then _G.TwTPConn:Disconnect(); _G.TwTPConn=nil end
+    if _G.TwTPActiveTween then _G.TwTPActiveTween:Cancel(); _G.TwTPActiveTween=nil end
+    if Fr1 then task.cancel(Fr1); Fr1=nil end
+    if Fr12 then task.cancel(Fr12); Fr12=nil end
+    if Fr166 then task.cancel(Fr166); Fr166=nil end
+    if Fr3 then task.cancel(Fr3); Fr3=nil end
+    if FrConn then task.cancel(FrConn); FrConn=nil end
+    local p=workspace:FindFirstChild(XSFarmPlatName); if p then p:Destroy() end
+    if LP.Character and LP.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject=LP.Character.Humanoid end
+    for _,d in pairs(ESP_Obj) do pcall(function() d.Box:Remove() end); pcall(function() d.Name:Remove() end) end
+    table.clear(ESP_Obj)
+    if SG2 and SG2.Parent then SG2:Destroy() end
+end
 
--- X → mini DS
-BtnClose.MouseButton1Click:Connect(function()
-    DSMini.Position=UDim2.new(0,Win.Position.X.Offset,0,Win.Position.Y.Offset+WIN_H/2)
-    TS2:Create(Win,TweenInfo.new(0.22,Enum.EasingStyle.Sine,Enum.EasingDirection.In),
-        {Size=UDim2.new(0,0,0,0),Position=UDim2.new(0,Win.Position.X.Offset+WIN_W/2,0,Win.Position.Y.Offset+WIN_H/2)}):Play()
-    task.wait(0.25); Win.Visible=false; DSMini.Size=UDim2.new(0,0,0,0); DSMini.Visible=true
-    TS2:Create(DSMini,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,64,0,64)}):Play() end)
-DSMBtn.MouseButton1Click:Connect(function()
-    if mMv then mMv=false; return end
-    TS2:Create(DSMini,TweenInfo.new(0.16,Enum.EasingStyle.Sine,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0)}):Play()
-    task.wait(0.18); DSMini.Visible=false; Win.Size=UDim2.new(0,0,0,0); Win.Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2); Win.Visible=true
-    TS2:Create(Win,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,WIN_W,0,WIN_H)}):Play() end)
+-- DS toggle HUD
+DSQBtn.MouseButton1Click:Connect(function()
+    HUDHidden=not HUDHidden
+    Win.Visible=not HUDHidden; Win.Active=not HUDHidden
+    DSQSt.Color=HUDHidden and C2.PINK or C2.CYAN
+    DSQLabel.TextColor3=HUDHidden and C2.PINK or C2.CYAN
+end)
+
+-- X = apagar todo + destruir hub
+BtnClose.MouseButton1Click:Connect(function() ShutdownAll() end)
 
 -- Entrada
 Win.Position=UDim2.new(Win.Position.X.Scale,Win.Position.X.Offset,Win.Position.Y.Scale-0.1,Win.Position.Y.Offset)
