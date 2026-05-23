@@ -563,7 +563,27 @@ Pages["Shop"] = PgShop
 local PgVisuals = MakePage("Visuals")
 MkSecHeader(PgVisuals,"Fast Flags",1)
 
-local FAST_FLAGS={["FFlagWindowsLaunchAnalytics"]="False",["DFIntCrashUploadToBacktracePercentage"]="0",["FFlagRenderGpuTextureCompressor"]="True",["FFlagEnableSoundTelemetry"]="False",["FIntReportDeviceInfoRollout"]="0",["FFlagDisableNewIGMinDUA"]="True",["DFFlagGpuVsCpuBoundTelemetry"]="False",["FFlagDebugDisableTelemetryV2Stat"]="True",["DFFlagESGamePerfMonitorEnabled"]="False",["FFlagEnableBatteryStateLogger"]="False",["DFIntCSGLevelOfDetailSwitchingDistanceL23"]="0",["FFlagDebugDisplayFPS"]="False",["DFFlagQueueDataPingFromSendData"]="True",["DFFlagEphemeralCounterInfluxReportingEnabled"]="False",["FFlagDebugRenderingSetDeterministic"]="True",["FFlagEnableAudioOutputDevice"]="false",["FFlagDebugDisableTelemetryV2Counter"]="True",["DFIntPredictedOOMPercent"]="0",["DFStringAltHttpPointsReporterUrl"]="null",["FIntDefaultMeshCacheSizeMB"]="256",["DFIntGoogleAnalyticsLoadPlayerHundredth"]="0",["FFlagNewLightAttenuation"]="True",["FFlagDebugDisableOTAMaterialTexture"]="true",["FFlagFastGPULightCulling3"]="True",["DFStringLightstepHTTPTransportUrlHost"]="null",["FFlagRenderPerformanceTelemetry"]="False",["FFlagRenderCheckThreading"]="True",["FFlagGpuGeometryManager7"]="True",["DFIntHttpCurlConnectionCacheSize"]="134217728",["FFlagVoiceChatServiceManagerUseAvatarChat"]="False",["DFIntDebugFRMQualityLevelOverride"]="1",["FFlagHandleAltEnterFullscreenManually"]="False",["DFFlagDebugRenderForceTechnologyVoxel"]="True",["FFlagReportFpsAndGfxQualityPercentiles"]="False",["DFIntNewRunningBaseAltitudeD"]="50",["DFFlagCrashUploadFullDumps"]="False",["DFFlagDebugAnalyticsSendUserId"]="False",["FintRenderGrassHeightScaler"]="0",["DFIntLoginTelemetryHundredthsPercent"]="0",["DFIntStartupTracingInfluxRollout"]="0",["FFlagEnableAdsAPI"]="False",["FIntLinkBrowserTrackerToDeviceRollout"]="0",["DFFlagEnableFmodErrorsTelemetry"]="False",["FLogNetwork"]="7",["FFlagAnimationClipMemCacheEnabled"]="True",["DFIntClientLightingTechnologyChangedTelemetryHundredthsPercent"]="0",["FStringErrorUploadToBacktraceBaseUrl"]="https://opt-out.roblox.com",["FFlagDebugDisableTelemetryPoint"]="True",["FIntEmotesAnimationsPerPlayerCacheSize"]="16777216",["FFlagFixGraphicsQuality"]="True",["FFlagPreloadAllFonts"]="True",["FFlagCommitToGraphicsQualityFix"]="True",["FIntCameraMaxZoomDistance"]="99999",["DFIntCanHideGuiGroupId"]="32380007",["FFlagBatchAssetApi"]="True",["FFlagGraphicsCheckComputeSupport"]="True",["FIntMeshContentProviderForceCacheSize"]="268435456",["FIntRenderShadowmapBias"]="0",["FFlagDisablePostFx"]="True",["DFFlagDebugPerfMode"]="True",["FFlagGraphicsEnableD3D10Compute"]="True",["FFlagPreloadMinimalFonts"]="True",["FIntFontSizePadding"]="3",["DFFlagTextureQualityOverrideEnabled"]="True",["DFStringRobloxAnalyticsURL"]="null",["DFStringAnalyticsEventStreamUrlEndpoint"]="opt-out",["DFFlagVideoCaptureServiceEnabled"]="False",["DFStringRobloxAnalyticsSubDomain"]="opt-out",["FIntTaskSchedulerAutoThreadLimit"]="8",["DFFlagBrowserTrackerIdTelemetryEnabled"]="False",["FFlagDebugDisableTelemetryEphemeralStat"]="True",["DFFlagBaseNetworkMetrics"]="False",["DFIntS2PhysicsSenderRate"]="250",["FFlagLocServicePerformanceAnalyticsEnabled"]="False",["DFStringTelegrafHTTPTransportUrl"]="null",["FStringImmersiveAdsUniverseWhitelist"]="0",["FFlagAddGameInstanceIdToSessionTracking"]="False",["FFlagTrackPlaceIdForCrashEnabled"]="False",["DFIntTaskSchedulerTargetFps"]="120"}
+local FAST_FLAGS={
+  "DFIntTaskSchedulerTargetFps": 240,
+  "FFlagHandleAltEnterFullscreenManually": true,
+  "FIntQualityLevel": 1,
+  "FFlagGraphicsQualityAutoLevel": false,
+  "FFlagFixGraphicsQualityChange": true,
+  "FFlagFixGraphicsQualityReset": true,
+  "FFlagDebugDisableScriptingGC": true,
+  "FFlagDisableShadowRender": true,
+  "FFlagRenderShadow": false,
+  "FFlagTerrainSkipTextures": true,
+  "FFlagUserDisableCoreScriptTexturePreload": true,
+  "FFlagSkipFrameForSlowLoadingAssets": true,
+  "FFlagDoNotUploadRecentlyUsedAssets": true,
+  "FFlagEnableNewLoadingScreen": false,
+  "FFlagEnableNewVRSystem": false,
+  "FFlagNetworkCdnBypass": true,
+  "FFlagNetworkBypassUdpThrottling": true,
+  "FFlagReducePacketLoss": true,
+  "FFlagEnableFastGameJoin": true
+}
 
 local function CleanFlag(z)
     return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString","")
