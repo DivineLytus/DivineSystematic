@@ -6,10 +6,10 @@ local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-local HUB_NAME="Divine Systematic"; local HUB_VERSION="v3"; local HUB_SUBTITLE="Blox Fruits Edition"
+local HUB_NAME="Divine Systematic"; local HUB_VERSION="v4"; local HUB_SUBTITLE="Blox Fruits Edition"
 local LOAD_STEPS={"Iniciando sistema...","Cargando datos...","Verificando conexion...","Preparando funciones...","Listo."}
 local C={BG=Color3.fromRGB(5,5,16),CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,255,80),DIM=Color3.fromRGB(0,160,160)}
-
+ 
 local ScreenGui=Instance.new("ScreenGui"); ScreenGui.Name="CyberpunkHub"; ScreenGui.ResetOnSpawn=false
 ScreenGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() ScreenGui.IgnoreGuiInset=true end); ScreenGui.Parent=PlayerGui
 local Overlay=Instance.new("Frame"); Overlay.Size=UDim2.fromScale(1,1); Overlay.BackgroundColor3=Color3.fromRGB(0,0,0)
@@ -18,7 +18,7 @@ local Panel=Instance.new("Frame"); Panel.Size=UDim2.new(0,340,0,300); Panel.Anch
 Panel.Position=UDim2.new(0.5,0,1.6,0); Panel.BackgroundColor3=C.BG; Panel.BorderSizePixel=0; Panel.ZIndex=2; Panel.Parent=Overlay
 Instance.new("UICorner",Panel).CornerRadius=UDim.new(0,8)
 local PS=Instance.new("UIStroke"); PS.Color=C.CYAN; PS.Thickness=1.5; PS.Transparency=0.3; PS.Parent=Panel
-
+ 
 local function MkLabel(t)
     local l=Instance.new("TextLabel"); l.BackgroundTransparency=1; l.BorderSizePixel=0
     l.TextColor3=t.color or C.CYAN; l.Font=t.font or Enum.Font.Code; l.TextSize=t.size or 13
@@ -62,7 +62,7 @@ local BtnStroke=Instance.new("UIStroke"); BtnStroke.Color=C.CYAN; BtnStroke.Thic
 MkLabel({text="SYS // "..LocalPlayer.Name:upper(),color=Color3.fromRGB(0,60,60),size=9,sz=UDim2.new(1,0,0,14),pos=UDim2.new(0,0,1,-18)})
 Btn.MouseEnter:Connect(function() Btn.TextColor3=C.PINK; BtnStroke.Color=C.PINK end)
 Btn.MouseLeave:Connect(function() Btn.TextColor3=C.CYAN; BtnStroke.Color=C.CYAN end)
-
+ 
 local function AnimateLoad(cb)
     for i,step in ipairs(LOAD_STEPS) do StatusText.Text=step
         TweenService:Create(Bar,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
@@ -70,16 +70,16 @@ local function AnimateLoad(cb)
         task.wait(0.5) end
     StatusText.Text="Sistema listo."; task.wait(0.4); if cb then cb() end
 end
-
+ 
 TweenService:Create(Panel,TweenInfo.new(0.45,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(0.5,0,0.5,0)}):Play()
 task.wait(0.5)
-
+ 
 AnimateLoad(function()
 Btn.MouseButton1Click:Connect(function()
     TweenService:Create(Panel,TweenInfo.new(0.35,Enum.EasingStyle.Sine,Enum.EasingDirection.In),{Position=UDim2.new(0.5,0,-0.6,0)}):Play()
     TweenService:Create(Overlay,TweenInfo.new(0.35,Enum.EasingStyle.Sine,Enum.EasingDirection.In),{BackgroundTransparency=1}):Play()
     task.wait(0.38); ScreenGui:Destroy()
-
+ 
 -- ══════════════════════════════════════════════════════════════
 -- LÓGICA
 -- ══════════════════════════════════════════════════════════════
@@ -88,7 +88,7 @@ local VIM=game:GetService("VirtualInputManager"); local RepSto=game:GetService("
 local TS2=game:GetService("TweenService"); local P2=game:GetService("Players")
 local TPService=game:GetService("TeleportService"); local HttpService=game:GetService("HttpService")
 local LP=P2.LocalPlayer; local Cam=workspace.CurrentCamera
-
+ 
 local MasterEnabled=false; local AutoSkillEnabled=false; local MaxDist=500; local FOV=150
 local FastAtk=false; local FastAtkRange=12000; local FruitAtk=false
 local InfJump=false; local InstakillActive=false; local FastAtkV2=false; local FastAtkV2Range=3000
@@ -101,10 +101,10 @@ local BringNPCEnabled=false; local BringNPCRange=300
 local AutoFarmNearestEnabled=false; local AutoFarmBossEnabled=false; local AutoFarmAllBossesEnabled=false
 local AutoStatsEnabled=false; local AutoSkillsEnabled=false
 local ActiveStats={}
-
+ 
 local FaConn=nil; local FrConn=nil; local Fr1=nil; local Fr12=nil; local Fr166=nil; local Fr3=nil; local FastV2Conn=nil
 local SelectedPlayer=nil
-
+ 
 -- Automatizaciones (subir nivel + cofres)
 local CommF=nil
 local AutoLevelEnabled=false; local AutoChestEnabled=false
@@ -113,9 +113,12 @@ local AutoTeleportTweenSpeed=300; local AutoFarmPlatName="AutoFarmPlatMerged"
 local AutoFarmPullRadius=350; local AutoFarmYOffset=30
 local ChestCache={}; local LastChestScan=0
 local SelectedBossToFarm="Gorilla King"; local BossCycleIndex=1
-
+ 
+-- Referencia global al label del selector de boss (se asigna al construir la UI)
+local BossSelectedLbl=nil
+ 
 local SPECIAL={"Leviathan","Tail","Segment","Tongue","Sea Beast","TerrorShark","Piranha","Ghost Ship","Fishman","Boss"}
-
+ 
 local RegHit,RegAtk
 pcall(function()
     local Net=RepSto:WaitForChild("Modules",5):WaitForChild("Net",5)
@@ -125,7 +128,7 @@ pcall(function()
     local Rm=RepSto:FindFirstChild("Remotes")
     if Rm then CommF=Rm:FindFirstChild("CommF_") end
 end)
-
+ 
 -- Bypasses
 task.spawn(function() pcall(function()
     repeat task.wait() until RepSto:FindFirstChild("Util")
@@ -143,7 +146,7 @@ task.spawn(function() pcall(function()
         return ONC(s,...) end))
     GS.ErrorMessageChanged:Connect(function() if GS:GetErrorMessage()~="" then Rejoin() end end)
 end) end)
-
+ 
 local function ServerHop()
     local placeId=game.PlaceId; local cursor=""; local servers={}
     for _=1,4 do
@@ -152,59 +155,162 @@ local function ServerHop()
         if not ok or not res or not res.data then break end
         for _,sv in ipairs(res.data) do
             if type(sv)=="table" and sv.id and sv.playing and sv.maxPlayers and sv.playing<sv.maxPlayers and sv.id~=game.JobId then
-                table.insert(servers,sv.id)
-            end
-        end
+                table.insert(servers,sv.id) end end
         cursor=res.nextPageCursor or ""
         if cursor=="" then break end
     end
     if #servers>0 then TPService:TeleportToPlaceInstance(placeId,servers[math.random(1,#servers)],LP) end
 end
-
+ 
 local function BuyKenVision()
     local data=LP:FindFirstChild("Data")
     local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
     if lvl<300 then warn("Necesitas nivel 300 para Ken Haki (Vision).") return end
     if CommF then pcall(function() CommF:InvokeServer("KenTalk","Buy") end) end
 end
-
--- Datos de misiones (Sea 1)
+ 
+-- ══════════════════════════════════════
+-- TABLAS DE QUESTS — SEA 1, 2 Y 3
+-- ══════════════════════════════════════
 local LevelQuestsAuto={
-    {lvl=1,q="BanditQuest1",ql=1,name="Bandit",giver="Bandit Quest Giver",island="Town"},
-    {lvl=10,q="JungleQuest",ql=1,name="Monkey",giver="Adventurer",island="Jungle"},
-    {lvl=15,q="JungleQuest",ql=2,name="Gorilla",giver="Adventurer",island="Jungle"},
-    {lvl=30,q="BuggyQuest1",ql=1,name="Pirate",giver="Pirate Adventurer",island="Pirate"},
-    {lvl=40,q="BuggyQuest1",ql=2,name="Brute",giver="Pirate Adventurer",island="Pirate"},
-    {lvl=60,q="DesertQuest",ql=1,name="Desert Bandit",giver="Desert Adventurer",island="Desert"},
-    {lvl=75,q="DesertQuest",ql=2,name="Desert Officer",giver="Desert Adventurer",island="Desert"},
-    {lvl=90,q="SnowQuest",ql=1,name="Snow Bandit",giver="Villager",island="Snow"},
-    {lvl=100,q="SnowQuest",ql=2,name="Snowman",giver="Villager",island="Snow"},
-    {lvl=120,q="MarineQuest2",ql=1,name="Chief Petty Officer",giver="Marine",island="Marine"},
-    {lvl=130,q="MarineQuest2",ql=2,name="Vice Admiral",giver="Marine",island="Marine",isBoss=true},
-    {lvl=150,q="SkyQuest",ql=1,name="Sky Bandit",giver="Sky Adventurer",island="Sky"},
-    {lvl=175,q="SkyQuest",ql=2,name="Dark Master",giver="Sky Adventurer",island="Sky"},
-    {lvl=190,q="PrisonerQuest",ql=1,name="Prisoner",giver="Jail Keeper",island="Prison"},
-    {lvl=210,q="PrisonerQuest",ql=2,name="Dangerous Prisoner",giver="Jail Keeper",island="Prison"},
-    {lvl=250,q="ColosseumQuest",ql=1,name="Toga Warrior",giver="Colosseum Quest Giver",island="Colosseum"},
-    {lvl=275,q="ColosseumQuest",ql=2,name="Gladiator",giver="Colosseum Quest Giver",island="Colosseum"},
-    {lvl=300,q="MagmaQuest",ql=1,name="Military Soldier",giver="Volcano Adventurer",island="Magma"},
-    {lvl=325,q="MagmaQuest",ql=2,name="Military Spy",giver="Volcano Adventurer",island="Magma"},
-    {lvl=375,q="FishmanQuest",ql=1,name="Fishman Warrior",giver="Fishman Quest Giver",island="Fishman"},
-    {lvl=400,q="FishmanQuest",ql=2,name="Fishman Commando",giver="Fishman Quest Giver",island="Fishman"},
-    {lvl=450,q="SkyExp1Quest",ql=1,name="God's Guard",giver="Sky Adventurer",island="Sky"},
-    {lvl=475,q="SkyExp1Quest",ql=2,name="Shanda",giver="Sky Adventurer",island="Sky"},
-    {lvl=525,q="SkyExp2Quest",ql=1,name="Royal Squad",giver="Sky Adventurer",island="Sky"},
-    {lvl=550,q="SkyExp2Quest",ql=2,name="Royal Soldier",giver="Sky Adventurer",island="Sky"},
-    {lvl=625,q="FountainQuest",ql=1,name="Galley Pirate",giver="Fountain Quest Giver",island="Fountain"},
-    {lvl=650,q="FountainQuest",ql=2,name="Galley Captain",giver="Fountain Quest Giver",island="Fountain"}
+    -- ═══ SEA 1 ═══
+    {lvl=1,   q="BanditQuest1",    ql=1, name="Bandit",               giver="Bandit Quest Giver",            island="Town"},
+    {lvl=10,  q="JungleQuest",     ql=1, name="Monkey",               giver="Adventurer",                    island="Jungle"},
+    {lvl=15,  q="JungleQuest",     ql=2, name="Gorilla",              giver="Adventurer",                    island="Jungle"},
+    {lvl=30,  q="BuggyQuest1",     ql=1, name="Pirate",               giver="Pirate Adventurer",             island="Pirate"},
+    {lvl=40,  q="BuggyQuest1",     ql=2, name="Brute",                giver="Pirate Adventurer",             island="Pirate"},
+    {lvl=60,  q="DesertQuest",     ql=1, name="Desert Bandit",        giver="Desert Adventurer",             island="Desert"},
+    {lvl=75,  q="DesertQuest",     ql=2, name="Desert Officer",       giver="Desert Adventurer",             island="Desert"},
+    {lvl=90,  q="SnowQuest",       ql=1, name="Snow Bandit",          giver="Villager",                      island="Snow"},
+    {lvl=100, q="SnowQuest",       ql=2, name="Snowman",              giver="Villager",                      island="Snow"},
+    {lvl=120, q="MarineQuest2",    ql=1, name="Chief Petty Officer",  giver="Marine",                        island="Marine"},
+    {lvl=130, q="MarineQuest2",    ql=2, name="Vice Admiral",         giver="Marine",                        island="Marine", isBoss=true},
+    {lvl=150, q="SkyQuest",        ql=1, name="Sky Bandit",           giver="Sky Adventurer",                island="Sky"},
+    {lvl=175, q="SkyQuest",        ql=2, name="Dark Master",          giver="Sky Adventurer",                island="Sky"},
+    {lvl=190, q="PrisonerQuest",   ql=1, name="Prisoner",             giver="Jail Keeper",                   island="Prison"},
+    {lvl=210, q="PrisonerQuest",   ql=2, name="Dangerous Prisoner",   giver="Jail Keeper",                   island="Prison"},
+    {lvl=250, q="ColosseumQuest",  ql=1, name="Toga Warrior",         giver="Colosseum Quest Giver",         island="Colosseum"},
+    {lvl=275, q="ColosseumQuest",  ql=2, name="Gladiator",            giver="Colosseum Quest Giver",         island="Colosseum"},
+    {lvl=300, q="MagmaQuest",      ql=1, name="Military Soldier",     giver="Volcano Adventurer",            island="Magma"},
+    {lvl=325, q="MagmaQuest",      ql=2, name="Military Spy",         giver="Volcano Adventurer",            island="Magma"},
+    {lvl=375, q="FishmanQuest",    ql=1, name="Fishman Warrior",      giver="Fishman Quest Giver",           island="Fishman"},
+    {lvl=400, q="FishmanQuest",    ql=2, name="Fishman Commando",     giver="Fishman Quest Giver",           island="Fishman"},
+    {lvl=450, q="SkyExp1Quest",    ql=1, name="God's Guard",          giver="Sky Adventurer",                island="Sky"},
+    {lvl=475, q="SkyExp1Quest",    ql=2, name="Shanda",               giver="Sky Adventurer",                island="Sky"},
+    {lvl=525, q="SkyExp2Quest",    ql=1, name="Royal Squad",          giver="Sky Adventurer",                island="Sky"},
+    {lvl=550, q="SkyExp2Quest",    ql=2, name="Royal Soldier",        giver="Sky Adventurer",                island="Sky"},
+    {lvl=625, q="FountainQuest",   ql=1, name="Galley Pirate",        giver="Fountain Quest Giver",          island="Fountain"},
+    {lvl=650, q="FountainQuest",   ql=2, name="Galley Captain",       giver="Fountain Quest Giver",          island="Fountain"},
+    -- ═══ SEA 2 ═══
+    -- Kingdom of Rose — Area 1
+    {lvl=700, q="KingdomQuest1",   ql=1, name="Raiders",              giver="Area 1 Quest Giver",            island="Kingdom"},
+    {lvl=725, q="KingdomQuest1",   ql=2, name="Mercenaries",          giver="Area 1 Quest Giver",            island="Kingdom"},
+    {lvl=750, q="KingdomQuest1",   ql=3, name="Diamond",              giver="Area 1 Quest Giver",            island="Kingdom", isBoss=true},
+    -- Kingdom of Rose — Area 2
+    {lvl=775, q="KingdomQuest2",   ql=1, name="Swan Pirates",         giver="Area 2 Quest Giver",            island="Kingdom"},
+    {lvl=800, q="KingdomQuest2",   ql=2, name="Factory Staff",        giver="Area 2 Quest Giver",            island="Kingdom"},
+    {lvl=850, q="KingdomQuest2",   ql=3, name="Jeremy",               giver="Area 2 Quest Giver",            island="Kingdom", isBoss=true},
+    -- Green Zone
+    {lvl=875, q="GreenZoneQuest",  ql=1, name="Marines",              giver="Marine Quest Giver",            island="Green"},
+    {lvl=900, q="GreenZoneQuest",  ql=2, name="Marine Captains",      giver="Marine Quest Giver",            island="Green"},
+    {lvl=925, q="GreenZoneQuest",  ql=3, name="Fajita",               giver="Marine Quest Giver",            island="Green",  isBoss=true},
+    -- Graveyard
+    {lvl=950, q="GraveyardQuest",  ql=1, name="Zombies",              giver="Graveyard Quest Giver",         island="Graveyard"},
+    {lvl=975, q="GraveyardQuest",  ql=2, name="Vampires",             giver="Graveyard Quest Giver",         island="Graveyard"},
+    -- Snow Mountain
+    {lvl=1000,q="SnowMtnQuest",    ql=1, name="Snow Troopers",        giver="Snow Mountain Quest Giver",     island="Snow Mountain"},
+    {lvl=1050,q="SnowMtnQuest",    ql=2, name="Winter Warriors",      giver="Snow Mountain Quest Giver",     island="Snow Mountain"},
+    -- Hot & Cold — Cold Side
+    {lvl=1100,q="ColdSideQuest",   ql=1, name="Lab Subordinates",     giver="Cold Side Quest Giver",         island="Cold"},
+    {lvl=1125,q="ColdSideQuest",   ql=2, name="Horned Warriors",      giver="Cold Side Quest Giver",         island="Cold"},
+    {lvl=1150,q="ColdSideQuest",   ql=3, name="Smoke Admiral",        giver="Cold Side Quest Giver",         island="Cold",   isBoss=true},
+    -- Hot & Cold — Hot Side
+    {lvl=1175,q="HotSideQuest",    ql=1, name="Magma Ninjas",         giver="Hot Side Quest Giver",          island="Hot"},
+    {lvl=1200,q="HotSideQuest",    ql=2, name="Lava Pirates",         giver="Hot Side Quest Giver",          island="Hot"},
+    -- Cursed Ship
+    {lvl=1250,q="CursedShipQuest", ql=1, name="Ship Deckhands",       giver="Cursed Captain Quest Giver",    island="Cursed"},
+    {lvl=1275,q="CursedShipQuest", ql=2, name="Ship Engineers",       giver="Cursed Captain Quest Giver",    island="Cursed"},
+    {lvl=1300,q="CursedShipQuest", ql=3, name="Ship Stewards",        giver="Cursed Captain Quest Giver",    island="Cursed"},
+    {lvl=1325,q="CursedShipQuest", ql=4, name="Ship Officers",        giver="Cursed Captain Quest Giver",    island="Cursed"},
+    -- Ice Castle
+    {lvl=1350,q="IceCastleQuest",  ql=1, name="Arctic Warriors",      giver="Ice Castle Quest Giver",        island="Ice Castle"},
+    {lvl=1375,q="IceCastleQuest",  ql=2, name="Snow Lurkers",         giver="Ice Castle Quest Giver",        island="Ice Castle"},
+    -- Forgotten Island
+    {lvl=1425,q="ForgottenQuest",  ql=1, name="Sea Soldiers",         giver="Forgotten Quest Giver",         island="Forgotten"},
+    {lvl=1450,q="ForgottenQuest",  ql=2, name="Water Fighters",       giver="Forgotten Quest Giver",         island="Forgotten"},
+    {lvl=1475,q="ForgottenQuest",  ql=3, name="Tide Keeper",          giver="Forgotten Quest Giver",         island="Forgotten", isBoss=true},
+    -- ═══ SEA 3 ═══
+    -- Port Town
+    {lvl=1500,q="PortQuest",       ql=1, name="Pirate Millionaires",  giver="Port Quest Giver",              island="Port"},
+    {lvl=1525,q="PortQuest",       ql=2, name="Pistol Billionaires",  giver="Port Quest Giver",              island="Port"},
+    -- Hydra Island
+    {lvl=1575,q="HydraQuest",      ql=1, name="Dragon Crew Warriors", giver="Hydra Quest Giver",             island="Hydra"},
+    {lvl=1600,q="HydraQuest",      ql=2, name="Dragon Crew Archers",  giver="Hydra Quest Giver",             island="Hydra"},
+    {lvl=1625,q="HydraQuest",      ql=3, name="Female Islanders",     giver="Hydra Quest Giver",             island="Hydra"},
+    {lvl=1650,q="HydraQuest",      ql=4, name="Giant Islanders",      giver="Hydra Quest Giver",             island="Hydra"},
+    -- Great Tree
+    {lvl=1700,q="GreatTreeQuest",  ql=1, name="Marine Commodores",    giver="Marine Tree Quest Giver",       island="Great Tree"},
+    {lvl=1725,q="GreatTreeQuest",  ql=2, name="Marine Rear Admirals", giver="Marine Tree Quest Giver",       island="Great Tree"},
+    {lvl=1750,q="GreatTreeQuest",  ql=3, name="Kilo Admiral",         giver="Marine Tree Quest Giver",       island="Great Tree", isBoss=true},
+    -- Floating Turtle — Forest
+    {lvl=1775,q="ForestPirateQ",   ql=1, name="Fishman Raiders",      giver="Forest Pirate Quest Giver",     island="Floating Turtle"},
+    {lvl=1800,q="ForestPirateQ",   ql=2, name="Fishman Captains",     giver="Forest Pirate Quest Giver",     island="Floating Turtle"},
+    -- Floating Turtle — Jungle
+    {lvl=1825,q="JunglePirateQ",   ql=1, name="Forest Pirates",       giver="Deep Forest Quest Giver",       island="Floating Turtle"},
+    {lvl=1850,q="JunglePirateQ",   ql=2, name="Mythological Pirates", giver="Deep Forest Quest Giver",       island="Floating Turtle"},
+    -- Floating Turtle — Musketeer
+    {lvl=1900,q="MusketeersQ",     ql=1, name="Jungle Pirates",       giver="Musketeer Pirate Quest Giver",  island="Floating Turtle"},
+    {lvl=1925,q="MusketeersQ",     ql=2, name="Musketeer Pirates",    giver="Musketeer Pirate Quest Giver",  island="Floating Turtle"},
+    -- Haunted Castle
+    {lvl=1975,q="HauntedQuest",    ql=1, name="Reborn Skeletons",     giver="Haunted Quest Giver",           island="Haunted"},
+    {lvl=2000,q="HauntedQuest",    ql=2, name="Living Zombies",       giver="Haunted Quest Giver",           island="Haunted"},
+    {lvl=2025,q="HauntedQuest",    ql=3, name="Demonic Souls",        giver="Haunted Quest Giver",           island="Haunted"},
+    {lvl=2050,q="HauntedQuest",    ql=4, name="Posessed Mummies",     giver="Haunted Quest Giver",           island="Haunted"},
+    -- Sea of Treats — Peanut
+    {lvl=2075,q="PeanutQuest",     ql=1, name="Peanut Scouts",        giver="Peanut Quest Giver",            island="Peanut"},
+    {lvl=2100,q="PeanutQuest",     ql=2, name="Peanut Presidents",    giver="Peanut Quest Giver",            island="Peanut"},
+    -- Sea of Treats — Ice Cream
+    {lvl=2125,q="IceCreamQuest",   ql=1, name="Ice Cream Chefs",      giver="Ice Cream Quest Giver",         island="Ice Cream"},
+    {lvl=2150,q="IceCreamQuest",   ql=2, name="Ice Cream Commanders", giver="Ice Cream Quest Giver",         island="Ice Cream"},
+    -- Sea of Treats — Cake
+    {lvl=2200,q="CakeQuest",       ql=1, name="Cookie Crafters",      giver="Cake Quest Giver",              island="Cake"},
+    {lvl=2225,q="CakeQuest",       ql=2, name="Cake Guards",          giver="Cake Quest Giver",              island="Cake"},
+    {lvl=2250,q="CakeQuest",       ql=3, name="Cake Queen",           giver="Cake Quest Giver",              island="Cake",  isBoss=true},
+    -- Sea of Treats — Chocolate
+    {lvl=2300,q="ChocolateQuest",  ql=1, name="Cocoa Warriors",       giver="Chocolate Quest Giver",         island="Chocolate"},
+    {lvl=2325,q="ChocolateQuest",  ql=2, name="Chocolate Bar Battlers",giver="Chocolate Quest Giver",        island="Chocolate"},
+    -- Sea of Treats — Candy
+    {lvl=2350,q="CandyQuest",      ql=1, name="Sweet Thieves",        giver="Candy Quest Giver",             island="Candy"},
+    {lvl=2375,q="CandyQuest",      ql=2, name="Candy Rebels",         giver="Candy Quest Giver",             island="Candy"},
+    -- Tiki Outpost
+    {lvl=2400,q="TikiQuest",       ql=1, name="Islanders",            giver="Tiki Quest Giver",              island="Tiki"},
+    {lvl=2425,q="TikiQuest",       ql=2, name="Sun-kissed Warriors",  giver="Tiki Quest Giver",              island="Tiki"},
+    -- Submerged Island
+    {lvl=2450,q="SubmergedQuest",  ql=1, name="Drowned Warriors",     giver="Submerged Quest Giver",         island="Submerged"},
+    {lvl=2475,q="SubmergedQuest",  ql=2, name="Tidekeepers",          giver="Submerged Quest Giver",         island="Submerged"},
+    {lvl=2525,q="SubmergedQuest",  ql=3, name="High Disciples",       giver="Submerged Quest Giver",         island="Submerged"},
+    {lvl=2550,q="SubmergedQuest",  ql=4, name="Grand Devotees",       giver="Submerged Quest Giver",         island="Submerged"},
 }
+ 
+-- ══════════════════════════════════════
+-- TABLA DE BOSSES — TODOS LOS MARES
+-- ══════════════════════════════════════
 local Sea1BossesAuto={
-    {name="Gorilla King"},{name="Bobby"},{name="Yeti"},{name="Mob Leader"},
-    {name="Vice Admiral"},{name="Warden"},{name="Chief Warden"},{name="Swan"},
-    {name="Magma Admiral"},{name="Fishman Lord"},{name="Wysper"},{name="Thunder God"},
-    {name="Cyborg"},{name="Saber Expert"},{name="The Saw"},{name="Greybeard"}
+    -- Sea 1
+    {name="Gorilla King",  sea=1}, {name="Bobby",          sea=1}, {name="Yeti",           sea=1},
+    {name="Mob Leader",    sea=1}, {name="Vice Admiral",   sea=1}, {name="Warden",         sea=1},
+    {name="Chief Warden",  sea=1}, {name="Swan",           sea=1}, {name="Magma Admiral",  sea=1},
+    {name="Fishman Lord",  sea=1}, {name="Wysper",         sea=1}, {name="Thunder God",    sea=1},
+    {name="Cyborg",        sea=1}, {name="Saber Expert",   sea=1}, {name="The Saw",        sea=1},
+    {name="Greybeard",     sea=1},
+    -- Sea 2
+    {name="Diamond",              sea=2}, {name="Jeremy",               sea=2},
+    {name="Fajita",               sea=2}, {name="Awakened Ice Admiral", sea=2},
+    {name="Smoke Admiral",        sea=2}, {name="Tide Keeper",          sea=2},
+    -- Sea 3
+    {name="Kilo Admiral",         sea=3}, {name="Cake Queen",           sea=3},
 }
-
+ 
 local function AutoTeleport(cf)
     local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart")
     if not c or not hrp or not cf then return end
@@ -217,12 +323,12 @@ local function AutoTeleport(cf)
     end)
     tw:Play(); tw.Completed:Wait(); bv:Destroy(); nc:Disconnect()
 end
-
+ 
 local function HasQuestAuto()
     local pgui=LP:FindFirstChild("PlayerGui")
     return pgui and pgui:FindFirstChild("Main") and pgui.Main:FindFirstChild("Quest") and pgui.Main.Quest.Visible or false
 end
-
+ 
 local function MatchEnemyNameAuto(npcName,targetName)
     if not npcName or not targetName then return false end
     if npcName==targetName then return true end
@@ -234,7 +340,7 @@ local function MatchEnemyNameAuto(npcName,targetName)
     end
     return false
 end
-
+ 
 local function GetTargetEnemyNameFromQuestAuto()
     local pgui=LP:FindFirstChild("PlayerGui")
     local main=pgui and pgui:FindFirstChild("Main")
@@ -254,7 +360,7 @@ local function GetTargetEnemyNameFromQuestAuto()
     end
     return best
 end
-
+ 
 local function IsEnemyAliveAuto(enemyName)
     local en=workspace:FindFirstChild("Enemies")
     if not en then return false end
@@ -264,7 +370,7 @@ local function IsEnemyAliveAuto(enemyName)
     end
     return false
 end
-
+ 
 local function GetBestQuestDataAuto()
     local data=LP:FindFirstChild("Data")
     local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
@@ -278,7 +384,7 @@ local function GetBestQuestDataAuto()
     end
     return best
 end
-
+ 
 local function GetIslandPositionAuto(keyword)
     local wo=workspace:FindFirstChild("_WorldOrigin")
     local locs=wo and wo:FindFirstChild("Locations")
@@ -286,7 +392,7 @@ local function GetIslandPositionAuto(keyword)
     for _,v in ipairs(locs:GetChildren()) do if string.find(string.lower(v.Name),string.lower(keyword)) then return v.Position end end
     return nil
 end
-
+ 
 local CachedSpawnsAuto={}
 local function GetEnemySpawnPositionAuto(enemyName)
     if CachedSpawnsAuto[enemyName] and CachedSpawnsAuto[enemyName].Y>0 then return CachedSpawnsAuto[enemyName] end
@@ -313,7 +419,7 @@ local function GetEnemySpawnPositionAuto(enemyName)
     end
     return nil
 end
-
+ 
 local function GetQuestGiverPositionAuto(qData)
     if not qData or not qData.giver then return nil end
     local npcs=workspace:FindFirstChild("NPCs"); if not npcs then return nil end
@@ -328,7 +434,7 @@ local function GetQuestGiverPositionAuto(qData)
     end
     return best
 end
-
+ 
 local function GatherTargetsAuto(myHRP,targetName,maxR)
     local t={}; local en=workspace:FindFirstChild("Enemies")
     if not en or not myHRP or not targetName then return t end
@@ -340,7 +446,7 @@ local function GatherTargetsAuto(myHRP,targetName,maxR)
     end
     return t
 end
-
+ 
 local function GetNearestEnemyNameAuto(myHRP)
     local en=workspace:FindFirstChild("Enemies")
     if not en or not myHRP then return nil end
@@ -354,7 +460,7 @@ local function GetNearestEnemyNameAuto(myHRP)
     end
     return nearName
 end
-
+ 
 local function GetCurrentFarmTargetAuto(myHRP)
     if AutoFarmAllBossesEnabled then
         for _,b in ipairs(Sea1BossesAuto) do if IsEnemyAliveAuto(b.name) then return b.name,nil,true end end
@@ -369,11 +475,13 @@ local function GetCurrentFarmTargetAuto(myHRP)
     local qData=GetBestQuestDataAuto()
     return (qData and (GetTargetEnemyNameFromQuestAuto() or qData.name) or nil),qData,false
 end
-
--- Funciones combate
+ 
+-- ══════════════════════════════════════
+-- COMBATE
+-- ══════════════════════════════════════
 local function FireAtk(t) if not RegAtk or not RegHit or #t==0 then return end
     pcall(function() RegAtk:FireServer(0); RegHit:FireServer(t[1][2],t) end) end
-
+ 
 local function GetNearest()
     local n,d=nil,math.huge; local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil end
@@ -382,7 +490,7 @@ local function GetNearest()
             local dist=(myHRP.Position-v.Character.HumanoidRootPart.Position).Magnitude
             if dist<d then d=dist; n=v end end end; return n
 end
-
+ 
 local function GetAimTarget()
     local T,SD=nil,FOV; local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil end
@@ -394,11 +502,11 @@ local function GetAimTarget()
                 if os then local dc=(Vector2.new(pos.X,pos.Y)-Vector2.new(Cam.ViewportSize.X/2,Cam.ViewportSize.Y/2)).Magnitude
                     if dc<SD then T=hrp; SD=dc end end end end end; return T
 end
-
+ 
 local function MkVec(x,y,z) if vector and vector.create then return vector.create(x,y,z) end; return Vector3.new(x,y,z) end
 local function GetFrRemote(n) local c=LP.Character; local h=c and c:FindFirstChild("HumanoidRootPart"); local t=c and c:FindFirstChild(n); local r=t and t:FindFirstChild("LeftClickRemote"); return c,h,r end
 local function GetNTRoot() local t=GetNearest(); return t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") end
-
+ 
 local function StartFastAtk()
     if FaConn then FaConn:Disconnect() end
     FaConn=RS.Heartbeat:Connect(function()
@@ -414,7 +522,7 @@ local function StartFastAtk()
             if hm and hm.Health>0 and r and (r.Position-hrp.Position).Magnitude<=FastAtkRange then table.insert(targets,{obj,r}) end; break end end end
         if #targets>0 then FireAtk(targets) end end)
 end
-
+ 
 local function StartFastAtkV2()
     if FastV2Conn then FastV2Conn:Disconnect() end
     FastV2Conn=RS.Heartbeat:Connect(function()
@@ -429,15 +537,17 @@ local function StartFastAtkV2()
                     table.insert(targets,{v,tr}); if #targets>=5 then break end end end end
         if #targets>0 then LastAtk=tick(); FireAtk(targets) end end)
 end
-
+ 
 local function SetNoclip(s) Noclip=s
     if Noclip then NoclipConn=RS.Stepped:Connect(function() local c=LP.Character
         if c and Noclip then for _,p in pairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end end)
     else if NoclipConn then NoclipConn:Disconnect(); NoclipConn=nil end
         local c=LP.Character; if c then for _,p in pairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=true end end end end
 end
-
--- Loops globales
+ 
+-- ══════════════════════════════════════
+-- LOOPS GLOBALES
+-- ══════════════════════════════════════
 RS.RenderStepped:Connect(function()
     if _G.WSOn then pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid"); if h then h.WalkSpeed=_G.WSVal end end) end
     if MasterEnabled and UIS.MouseBehavior==Enum.MouseBehavior.LockCenter then
@@ -455,7 +565,7 @@ UIS.InputBegan:Connect(function(input,gp) if gp then return end
 UIS.InputEnded:Connect(function(i) if i.KeyCode==Enum.KeyCode.Space then SpaceHeld=false end end)
 RS.Heartbeat:Connect(function() if InfJump and SpaceHeld then local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.Velocity=Vector3.new(hrp.Velocity.X,50,hrp.Velocity.Z) end end end)
-
+ 
 task.spawn(function()
     while task.wait(0.5) do
         if AutoBusoEnabled and CommF then
@@ -464,7 +574,7 @@ task.spawn(function()
         end
     end
 end)
-
+ 
 task.spawn(function()
     while task.wait(1) do
         if AutoStatsEnabled and CommF and #ActiveStats>0 then
@@ -481,7 +591,7 @@ task.spawn(function()
         end
     end
 end)
-
+ 
 task.spawn(function()
     local keys={Enum.KeyCode.Z,Enum.KeyCode.X,Enum.KeyCode.C,Enum.KeyCode.V,Enum.KeyCode.F}
     while task.wait(0.45) do
@@ -493,7 +603,7 @@ task.spawn(function()
         end
     end
 end)
-
+ 
 task.spawn(function()
     while true do
         task.wait(math.max(0.01,AutoClickDelay))
@@ -506,9 +616,12 @@ task.spawn(function()
         end
     end
 end)
-
+ 
+-- ══════════════════════════════════════
+-- BRING NPC (MEJORADO)
+-- ══════════════════════════════════════
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.05) do
         if not BringNPCEnabled then continue end
         local c=LP.Character; local myHRP=c and c:FindFirstChild("HumanoidRootPart")
         local en=workspace:FindFirstChild("Enemies")
@@ -516,19 +629,32 @@ task.spawn(function()
         local i=0
         for _,npc in ipairs(en:GetChildren()) do
             local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
-            if hm and hrp and hm.Health>0 and (hrp.Position-myHRP.Position).Magnitude<=BringNPCRange then
-                i=i+1
-                local a=math.rad((i*40)%360); local r=8
-                local off=Vector3.new(math.cos(a)*r,-2,math.sin(a)*r)
-                hrp.CFrame=CFrame.new(myHRP.Position+off)
-                hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
-                hrp.CanCollide=false
+            if not (hm and hrp and hm.Health>0) then continue end
+            if (hrp.Position-myHRP.Position).Magnitude>BringNPCRange then continue end
+            i=i+1
+            -- Disposicion en espiral por anillos de 8
+            local ring=math.ceil(i/8); local radius=ring*6
+            local angle=math.rad(((i-1)*(360/8))%360)
+            local offset=Vector3.new(math.cos(angle)*radius,-1,math.sin(angle)*radius)
+            -- Anclar junto al jugador
+            hrp.CFrame=CFrame.new(myHRP.Position+offset)
+            -- Anular toda fisica
+            hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+            hrp.AssemblyAngularVelocity=Vector3.new(0,0,0)
+            hrp.CanCollide=false
+            -- Desactivar IA de movimiento
+            hm.WalkSpeed=0; hm.JumpPower=0; hm.PlatformStand=true
+            -- Eliminar BodyMovers internos del NPC
+            for _,bm in ipairs(hrp:GetChildren()) do
+                if bm:IsA("BodyMover") then bm:Destroy() end
             end
         end
     end
 end)
-
--- Auto subir nivel
+ 
+-- ══════════════════════════════════════
+-- AUTO SUBIR NIVEL
+-- ══════════════════════════════════════
 task.spawn(function()
     while task.wait(0.15) do
         local anyFarmMode=AutoLevelEnabled or AutoFarmNearestEnabled or AutoFarmBossEnabled or AutoFarmAllBossesEnabled
@@ -537,20 +663,20 @@ task.spawn(function()
             local oldPlat=workspace:FindFirstChild(AutoFarmPlatName); if oldPlat then oldPlat:Destroy() end
             continue
         end
-
+ 
         local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); local hm=c and c:FindFirstChildOfClass("Humanoid")
         if not c or not hrp or not hm or hm.Health<=0 then continue end
-
+ 
         local plat=workspace:FindFirstChild(AutoFarmPlatName)
         if not plat then
             plat=Instance.new("Part"); plat.Name=AutoFarmPlatName; plat.Anchored=true; plat.CanCollide=false; plat.Transparency=1
             plat.Size=Vector3.new(15,1,15); plat.CFrame=hrp.CFrame*CFrame.new(0,-3.5,0); plat.Parent=workspace
         end
-
+ 
         local targetEnemyName,qData,forceNoQuest=GetCurrentFarmTargetAuto(hrp)
         if not targetEnemyName then AutoFarmState="WAITING"; continue end
         AutoFarmTarget=targetEnemyName
-
+ 
         local needsQuest=AutoLevelEnabled and not forceNoQuest
         if needsQuest and not HasQuestAuto() then
             AutoFarmState="GETTING_QUEST"
@@ -567,7 +693,7 @@ task.spawn(function()
             end
             continue
         end
-
+ 
         AutoFarmState="FARMING"
         local en=workspace:FindFirstChild("Enemies"); local firstNPC=nil; local minDist=math.huge
         if en then
@@ -581,7 +707,7 @@ task.spawn(function()
                 end
             end
         end
-
+ 
         if firstNPC then
             local nHrp=firstNPC:FindFirstChild("HumanoidRootPart")
             if nHrp then
@@ -618,8 +744,10 @@ task.spawn(function()
         end
     end
 end)
-
--- Auto recoleccion de cofres
+ 
+-- ══════════════════════════════════════
+-- AUTO COFRES
+-- ══════════════════════════════════════
 local function GetChestsAuto()
     if tick()-LastChestScan>15 or #ChestCache==0 then
         LastChestScan=tick(); table.clear(ChestCache)
@@ -633,7 +761,7 @@ local function GetChestsAuto()
     for _,ch in ipairs(ChestCache) do if ch and ch.Parent and ch:FindFirstChild("TouchInterest") then table.insert(active,ch) end end
     return active
 end
-
+ 
 task.spawn(function()
     while task.wait(1) do
         if not AutoChestEnabled then continue end
@@ -654,8 +782,10 @@ task.spawn(function()
         end
     end
 end)
-
+ 
+-- ══════════════════════════════════════
 -- ESP
+-- ══════════════════════════════════════
 local ESP_Obj={}
 local function MkESP(p) if p==LP then return end
     local B=Drawing.new("Square"); B.Visible=false; B.Color=Color3.fromRGB(0,162,255); B.Thickness=1.5; B.Filled=false
@@ -675,7 +805,7 @@ RS.RenderStepped:Connect(function()
         else d.Box.Visible=false; d.Name.Visible=false end end end)
 P2.PlayerAdded:Connect(function(p) MkESP(p) end)
 P2.PlayerRemoving:Connect(function(p) if ESP_Obj[p] then ESP_Obj[p].Box:Remove(); ESP_Obj[p].Name:Remove(); ESP_Obj[p]=nil end end)
-
+ 
 -- ══════════════════════════════════════
 -- MAIN HUB GUI
 -- ══════════════════════════════════════
@@ -685,11 +815,11 @@ local C2={BG=Color3.fromRGB(5,5,16),BG2=Color3.fromRGB(6,6,26),SIDEBAR=Color3.fr
     DIM=Color3.fromRGB(0,140,140),DIMTXT=Color3.fromRGB(0,80,80)}
 local TAB_NAMES={"PERFIL","FARM","PVP","TP","SHOP","VISUALS"}; local TAB_KEYS={"Perfil","Farm","PvP","TP","Shop","Visuals"}
 local WIN_W=420; local WIN_H=285; local TOP_H=30; local SIDE_W=92; local CONT_W=WIN_W-SIDE_W; local CONT_H=WIN_H-TOP_H
-
+ 
 local SG2=Instance.new("ScreenGui"); SG2.Name="CyberpunkMain"; SG2.ResetOnSpawn=false
 SG2.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() SG2.IgnoreGuiInset=true end); SG2.Parent=PGui2
-
--- DS quick toggle (mostrar/ocultar HUD)
+ 
+-- DS quick toggle
 local DSQuick=Instance.new("Frame"); DSQuick.Size=UDim2.new(0,56,0,56); DSQuick.Position=UDim2.new(0,14,1,-74)
 DSQuick.BackgroundColor3=C2.BG; DSQuick.BorderSizePixel=0; DSQuick.ZIndex=40; DSQuick.Parent=SG2
 Instance.new("UICorner",DSQuick).CornerRadius=UDim.new(0,6)
@@ -708,20 +838,18 @@ DSQBtn.InputBegan:Connect(function(i)
     if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
         DSQDragging=true; DSQMoved=false; DSQDragStart=i.Position; DSQStartPos=DSQuick.Position
         i.Changed:Connect(function()
-            if i.UserInputState==Enum.UserInputState.End then
-                DSQDragging=false
-            end
+            if i.UserInputState==Enum.UserInputState.End then DSQDragging=false end
         end)
     end
 end)
-
+ 
 -- Ventana principal
 local Win=Instance.new("Frame"); Win.Name="Window"; Win.Size=UDim2.new(0,WIN_W,0,WIN_H)
 Win.Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2); Win.BackgroundColor3=C2.BG
 Win.BorderSizePixel=0; Win.ZIndex=10; Win.ClipsDescendants=true; Win.Parent=SG2
-Instance.new("UICorner",Win).CornerRadius=UDim.new(0,8)  -- BORDES REDONDEADOS
+Instance.new("UICorner",Win).CornerRadius=UDim.new(0,8)
 local WinSt=Instance.new("UIStroke"); WinSt.Color=C2.CYAN; WinSt.Thickness=1.5; WinSt.Transparency=0.5; WinSt.Parent=Win
-
+ 
 local function MkC2(parent,pos,rot,zi)
     zi=zi or 12; local f=Instance.new("Frame"); f.Size=UDim2.new(0,12,0,12); f.Position=pos
     f.BackgroundTransparency=1; f.BorderSizePixel=0; f.Rotation=rot; f.ZIndex=zi; f.Parent=parent
@@ -729,7 +857,7 @@ local function MkC2(parent,pos,rot,zi)
     local v=Instance.new("Frame"); v.Size=UDim2.new(0,2,1,0); v.BackgroundColor3=C2.CYAN; v.BorderSizePixel=0; v.ZIndex=zi+1; v.Parent=f
 end
 MkC2(Win,UDim2.new(0,4,0,4),0); MkC2(Win,UDim2.new(1,-16,0,4),90); MkC2(Win,UDim2.new(0,4,1,-16),-90); MkC2(Win,UDim2.new(1,-16,1,-16),180)
-
+ 
 -- TopBar
 local TB=Instance.new("Frame"); TB.Name="TopBar"; TB.Size=UDim2.new(1,0,0,TOP_H)
 TB.BackgroundColor3=C2.BG2; TB.BorderSizePixel=0; TB.ZIndex=12; TB.Parent=Win
@@ -749,7 +877,7 @@ local function MkTBtn(xOff,lbl,col)
     Instance.new("UIStroke",b).Color=col; return b
 end
 local BtnClose=MkTBtn(-4,"X",C2.PINK)
-
+ 
 -- Sidebar
 local SB=Instance.new("Frame"); SB.Name="Sidebar"; SB.Size=UDim2.new(0,SIDE_W,0,CONT_H)
 SB.Position=UDim2.new(0,0,0,TOP_H); SB.BackgroundColor3=C2.SIDEBAR; SB.BorderSizePixel=0; SB.ZIndex=12; SB.Parent=Win
@@ -757,15 +885,17 @@ local SBSep=Instance.new("Frame"); SBSep.Size=UDim2.new(0,1,1,0); SBSep.Position
 SBSep.BackgroundColor3=C2.CYAN; SBSep.BackgroundTransparency=0.7; SBSep.BorderSizePixel=0; SBSep.ZIndex=13; SBSep.Parent=SB
 local TabAcc=Instance.new("Frame"); TabAcc.Size=UDim2.new(0,3,0,42); TabAcc.Position=UDim2.new(0,0,0,0)
 TabAcc.BackgroundColor3=C2.PINK; TabAcc.BorderSizePixel=0; TabAcc.ZIndex=16; TabAcc.Parent=SB
-
+ 
 -- Content
 local Cont=Instance.new("ScrollingFrame"); Cont.Name="Content"; Cont.Size=UDim2.new(0,CONT_W,0,CONT_H)
 Cont.Position=UDim2.new(0,SIDE_W,0,TOP_H); Cont.BackgroundColor3=C2.BG; Cont.BorderSizePixel=0
 Cont.ScrollBarThickness=3; Cont.ScrollBarImageColor3=C2.CYAN; Cont.ScrollBarImageTransparency=0.4
 Cont.CanvasSize=UDim2.new(0,0,0,0); Cont.AutomaticCanvasSize=Enum.AutomaticSize.Y
 Cont.ScrollingDirection=Enum.ScrollingDirection.Y; Cont.ElasticBehavior=Enum.ElasticBehavior.Always; Cont.ZIndex=12; Cont.Parent=Win
-
--- ── Helpers de UI ────────────────────────────────────────────
+ 
+-- ══════════════════════════════════════
+-- HELPERS DE UI
+-- ══════════════════════════════════════
 local function MkPage(name)
     local p=Instance.new("Frame"); p.Name=name; p.Size=UDim2.new(1,-8,0,0); p.AutomaticSize=Enum.AutomaticSize.Y
     p.Position=UDim2.new(0,4,0,6); p.BackgroundTransparency=1; p.BorderSizePixel=0; p.Visible=false; p.ZIndex=13; p.Parent=Cont
@@ -820,8 +950,7 @@ local function MkToggle(parent,label,desc,order,onOn,onOff)
             cSt.Color=Color3.fromRGB(0,70,70); sLbl.Text="OFF"; sLbl.TextColor3=Color3.fromRGB(0,70,70); if onOff then onOff() end
         end end); return card
 end
-
--- SLIDER con + y -
+ 
 local function MkSlider(parent,label,desc,order,minV,maxV,defV,step,onChange)
     local val=defV
     local card=Instance.new("Frame"); card.Size=UDim2.new(1,0,0,56); card.BackgroundColor3=Color3.fromRGB(0,14,14)
@@ -833,13 +962,11 @@ local function MkSlider(parent,label,desc,order,minV,maxV,defV,step,onChange)
     local dl=Instance.new("TextLabel"); dl.Size=UDim2.new(0,160,0,14); dl.Position=UDim2.new(0,8,0,22)
     dl.BackgroundTransparency=1; dl.BorderSizePixel=0; dl.Text=desc; dl.TextColor3=C2.DIMTXT
     dl.Font=Enum.Font.Code; dl.TextSize=9; dl.TextXAlignment=Enum.TextXAlignment.Left; dl.ZIndex=15; dl.Parent=card
-    -- barra de valor
     local barBG=Instance.new("Frame"); barBG.Size=UDim2.new(0,100,0,5); barBG.AnchorPoint=Vector2.new(1,0)
     barBG.Position=UDim2.new(1,-8,0,38); barBG.BackgroundColor3=Color3.fromRGB(0,25,25); barBG.BorderSizePixel=0; barBG.ZIndex=15; barBG.Parent=card
     Instance.new("UICorner",barBG).CornerRadius=UDim.new(1,0)
     local barFill=Instance.new("Frame"); barFill.Size=UDim2.new((defV-minV)/(maxV-minV),0,1,0); barFill.BackgroundColor3=C2.CYAN
     barFill.BorderSizePixel=0; barFill.ZIndex=16; barFill.Parent=barBG; Instance.new("UICorner",barFill).CornerRadius=UDim.new(1,0)
-    -- botones
     local function MkCtrlBtn(xOff,txt)
         local b=Instance.new("TextButton"); b.Size=UDim2.new(0,22,0,22); b.AnchorPoint=Vector2.new(1,0)
         b.Position=UDim2.new(1,xOff,0,28); b.BackgroundColor3=Color3.fromRGB(0,20,20); b.BorderSizePixel=0
@@ -858,8 +985,7 @@ local function MkSlider(parent,label,desc,order,minV,maxV,defV,step,onChange)
     end
     bMinus.MouseButton1Click:Connect(function() Update(val-step) end)
     bPlus.MouseButton1Click:Connect(function() Update(val+step) end)
-    -- hold to repeat
-    local function HoldBtn(btn, dir)
+    local function HoldBtn(btn,dir)
         local holding=false
         btn.MouseButton1Down:Connect(function() holding=true; task.spawn(function()
             task.wait(0.4); while holding do Update(val+(dir*step)); task.wait(0.1) end end) end)
@@ -868,7 +994,7 @@ local function MkSlider(parent,label,desc,order,minV,maxV,defV,step,onChange)
     HoldBtn(bMinus,-1); HoldBtn(bPlus,1)
     return card
 end
-
+ 
 local function SetAutoStat(statName,enabled)
     if enabled then
         if not table.find(ActiveStats,statName) then table.insert(ActiveStats,statName) end
@@ -876,9 +1002,7 @@ local function SetAutoStat(statName,enabled)
         local idx=table.find(ActiveStats,statName); if idx then table.remove(ActiveStats,idx) end
     end
 end
-
--- Selector de jugador simple
-local PlayerListFrame=nil
+ 
 local function MkPlayerSelector(parent,order)
     local card=Instance.new("Frame"); card.Size=UDim2.new(1,0,0,36); card.BackgroundColor3=Color3.fromRGB(0,14,14)
     card.BorderSizePixel=0; card.LayoutOrder=order; card.ZIndex=14; card.Parent=parent
@@ -891,7 +1015,6 @@ local function MkPlayerSelector(parent,order)
     refreshBtn.Text="Lista"; refreshBtn.TextColor3=C2.CYAN; refreshBtn.Font=Enum.Font.Code; refreshBtn.TextSize=10
     refreshBtn.AutoButtonColor=false; refreshBtn.ZIndex=15; refreshBtn.Parent=card
     Instance.new("UICorner",refreshBtn).CornerRadius=UDim.new(0,4); Instance.new("UIStroke",refreshBtn).Color=C2.CYAN
-    -- Panel de lista (aparece al hacer click)
     local listPanel=Instance.new("Frame"); listPanel.Size=UDim2.new(1,0,0,0); listPanel.AutomaticSize=Enum.AutomaticSize.Y
     listPanel.BackgroundColor3=Color3.fromRGB(0,10,10); listPanel.BorderSizePixel=0; listPanel.LayoutOrder=order+1
     listPanel.Visible=false; listPanel.ZIndex=20; listPanel.Parent=parent
@@ -901,7 +1024,6 @@ local function MkPlayerSelector(parent,order)
     refreshBtn.MouseButton1Click:Connect(function()
         listOpen=not listOpen
         if listOpen then
-            -- limpiar lista
             for _,c in pairs(listPanel:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
             local idx=0
             for _,p in pairs(P2:GetPlayers()) do if p~=LP then
@@ -917,13 +1039,137 @@ local function MkPlayerSelector(parent,order)
         else listPanel.Visible=false end end)
     return card
 end
-
-
+ 
+-- ══════════════════════════════════════
+-- BOSS SELECTOR (NUEVO — reutilizable)
+-- ══════════════════════════════════════
+-- Agrupa los bosses por mar para la UI
+local BOSS_SEA_LABELS={[1]="SEA 1",[2]="SEA 2",[3]="SEA 3"}
+ 
+local function MkBossSelector(parent, orderBase)
+    -- Header con boss seleccionado actualmente
+    local headerCard=Instance.new("Frame"); headerCard.Size=UDim2.new(1,0,0,36)
+    headerCard.BackgroundColor3=Color3.fromRGB(0,14,14); headerCard.BorderSizePixel=0
+    headerCard.LayoutOrder=orderBase; headerCard.ZIndex=14; headerCard.Parent=parent
+    Instance.new("UIStroke",headerCard).Color=Color3.fromRGB(0,60,60)
+    Instance.new("UICorner",headerCard).CornerRadius=UDim.new(0,5)
+ 
+    -- Icono de boss
+    local bossIcon=Instance.new("TextLabel"); bossIcon.Size=UDim2.new(0,20,1,0)
+    bossIcon.Position=UDim2.new(0,6,0,0); bossIcon.BackgroundTransparency=1; bossIcon.BorderSizePixel=0
+    bossIcon.Text="⚔"; bossIcon.TextColor3=C2.PINK; bossIcon.Font=Enum.Font.GothamBold
+    bossIcon.TextSize=16; bossIcon.ZIndex=15; bossIcon.Parent=headerCard
+ 
+    -- Nombre del boss seleccionado
+    local selLbl=Instance.new("TextLabel"); selLbl.Size=UDim2.new(1,-80,1,0)
+    selLbl.Position=UDim2.new(0,30,0,0); selLbl.BackgroundTransparency=1; selLbl.BorderSizePixel=0
+    selLbl.Text=SelectedBossToFarm; selLbl.TextColor3=C2.CYAN; selLbl.Font=Enum.Font.GothamBold
+    selLbl.TextSize=11; selLbl.TextXAlignment=Enum.TextXAlignment.Left; selLbl.ZIndex=15; selLbl.Parent=headerCard
+    BossSelectedLbl=selLbl  -- referencia global
+ 
+    -- Boton de abrir/cerrar lista
+    local toggleBtn=Instance.new("TextButton"); toggleBtn.Size=UDim2.new(0,44,0,26)
+    toggleBtn.AnchorPoint=Vector2.new(1,0.5); toggleBtn.Position=UDim2.new(1,-6,0.5,0)
+    toggleBtn.BackgroundColor3=Color3.fromRGB(0,20,20); toggleBtn.BorderSizePixel=0
+    toggleBtn.Text="▼ VER"; toggleBtn.TextColor3=C2.CYAN; toggleBtn.Font=Enum.Font.Code; toggleBtn.TextSize=9
+    toggleBtn.AutoButtonColor=false; toggleBtn.ZIndex=15; toggleBtn.Parent=headerCard
+    Instance.new("UICorner",toggleBtn).CornerRadius=UDim.new(0,4)
+    Instance.new("UIStroke",toggleBtn).Color=C2.CYAN
+ 
+    -- Panel de lista (scrollable, con separadores por mar)
+    local listWrap=Instance.new("Frame"); listWrap.Size=UDim2.new(1,0,0,0)
+    listWrap.AutomaticSize=Enum.AutomaticSize.Y; listWrap.BackgroundColor3=Color3.fromRGB(0,9,9)
+    listWrap.BorderSizePixel=0; listWrap.LayoutOrder=orderBase+1
+    listWrap.Visible=false; listWrap.ZIndex=18; listWrap.Parent=parent
+    Instance.new("UICorner",listWrap).CornerRadius=UDim.new(0,5)
+    Instance.new("UIStroke",listWrap).Color=Color3.fromRGB(0,50,50)
+    local listLayout=Instance.new("UIListLayout"); listLayout.SortOrder=Enum.SortOrder.LayoutOrder
+    listLayout.Padding=UDim.new(0,1); listLayout.Parent=listWrap
+    local listPad=Instance.new("UIPadding"); listPad.PaddingTop=UDim.new(0,4); listPad.PaddingBottom=UDim.new(0,4)
+    listPad.PaddingLeft=UDim.new(0,4); listPad.PaddingRight=UDim.new(0,4); listPad.Parent=listWrap
+ 
+    -- Construir la lista agrupada por mar
+    local currentSea=0; local rowIdx=0
+    for _,b in ipairs(Sea1BossesAuto) do
+        local sea=b.sea or 1
+        -- Separador de mar
+        if sea~=currentSea then
+            currentSea=sea
+            local seaLbl=Instance.new("TextLabel"); seaLbl.Size=UDim2.new(1,0,0,18)
+            seaLbl.BackgroundTransparency=1; seaLbl.BorderSizePixel=0
+            seaLbl.Text="── "..( BOSS_SEA_LABELS[sea] or ("SEA "..sea) ).." ──"
+            seaLbl.TextColor3=C2.PINK; seaLbl.Font=Enum.Font.Code; seaLbl.TextSize=9
+            seaLbl.TextXAlignment=Enum.TextXAlignment.Center; seaLbl.LayoutOrder=rowIdx; seaLbl.ZIndex=19; seaLbl.Parent=listWrap
+            rowIdx=rowIdx+1
+        end
+        -- Fila de boss
+        local bossName=b.name
+        local row=Instance.new("TextButton"); row.Size=UDim2.new(1,0,0,26)
+        row.BackgroundColor3=Color3.fromRGB(0,14,14); row.BorderSizePixel=0
+        row.AutoButtonColor=false; row.LayoutOrder=rowIdx; row.ZIndex=19; row.Parent=listWrap
+        Instance.new("UICorner",row).CornerRadius=UDim.new(0,4)
+ 
+        local rowPad=Instance.new("UIPadding"); rowPad.PaddingLeft=UDim.new(0,8); rowPad.Parent=row
+        local rowLbl=Instance.new("TextLabel"); rowLbl.Size=UDim2.new(1,-10,1,0); rowLbl.Position=UDim2.new(0,0,0,0)
+        rowLbl.BackgroundTransparency=1; rowLbl.BorderSizePixel=0; rowLbl.Text=bossName
+        rowLbl.TextColor3=(bossName==SelectedBossToFarm) and C2.GREEN or C2.DIM
+        rowLbl.Font=Enum.Font.Code; rowLbl.TextSize=10; rowLbl.TextXAlignment=Enum.TextXAlignment.Left
+        rowLbl.ZIndex=20; rowLbl.Parent=row
+ 
+        -- Check activo
+        local checkLbl=Instance.new("TextLabel"); checkLbl.Size=UDim2.new(0,16,1,0)
+        checkLbl.AnchorPoint=Vector2.new(1,0.5); checkLbl.Position=UDim2.new(1,-4,0.5,0)
+        checkLbl.BackgroundTransparency=1; checkLbl.BorderSizePixel=0
+        checkLbl.Text=(bossName==SelectedBossToFarm) and "✓" or ""
+        checkLbl.TextColor3=C2.GREEN; checkLbl.Font=Enum.Font.GothamBold; checkLbl.TextSize=11
+        checkLbl.ZIndex=20; checkLbl.Parent=row
+ 
+        row.MouseEnter:Connect(function() if bossName~=SelectedBossToFarm then row.BackgroundColor3=Color3.fromRGB(0,22,22) end end)
+        row.MouseLeave:Connect(function() if bossName~=SelectedBossToFarm then row.BackgroundColor3=Color3.fromRGB(0,14,14) end end)
+ 
+        row.MouseButton1Click:Connect(function()
+            -- Deseleccionar todos visualmente
+            for _,child in ipairs(listWrap:GetChildren()) do
+                if child:IsA("TextButton") then
+                    local lbl2=child:FindFirstChildOfClass("TextLabel")
+                    local chk=child:FindFirstChild("TextLabel",true)  -- no funciona igual, mejor buscar por orden
+                    for _,lc in ipairs(child:GetChildren()) do
+                        if lc:IsA("TextLabel") then
+                            if lc.TextSize==10 then lc.TextColor3=C2.DIM end
+                            if lc.TextSize==11 then lc.Text="" end
+                        end
+                    end
+                    child.BackgroundColor3=Color3.fromRGB(0,14,14)
+                end
+            end
+            -- Seleccionar este
+            SelectedBossToFarm=bossName
+            if BossSelectedLbl then BossSelectedLbl.Text=bossName end
+            rowLbl.TextColor3=C2.GREEN; checkLbl.Text="✓"
+            row.BackgroundColor3=Color3.fromRGB(0,25,14)
+        end)
+        rowIdx=rowIdx+1
+    end
+ 
+    local listOpen=false
+    toggleBtn.MouseButton1Click:Connect(function()
+        listOpen=not listOpen
+        listWrap.Visible=listOpen
+        toggleBtn.Text=listOpen and "▲ OCL" or "▼ VER"
+        toggleBtn.TextColor3=listOpen and C2.PINK or C2.CYAN
+        local st=Instance.new("UIStroke"); st.Color=listOpen and C2.PINK or C2.CYAN
+        -- reemplazar stroke del boton
+        for _,ch in ipairs(toggleBtn:GetChildren()) do if ch:IsA("UIStroke") then ch.Color=listOpen and C2.PINK or C2.CYAN end end
+    end)
+ 
+    return headerCard, listWrap
+end
+ 
 -- ══════════════════════════════════════
 -- PÁGINAS
 -- ══════════════════════════════════════
 local Pages={}; local startTime=os.clock()
-
+ 
 -- PERFIL
 local PgP=MkPage("Perfil")
 local ACard=Instance.new("Frame"); ACard.Size=UDim2.new(1,0,0,80); ACard.BackgroundColor3=Color3.fromRGB(0,14,14)
@@ -957,11 +1203,13 @@ task.spawn(function() while task.wait(3) do if not PBlock.Parent then break end
         pl.Text=ok and ("Ping: "..ping.." ms") or "Ping: N/D"
         pl.TextColor3=(ok and ping<100) and C2.GREEN or (ok and ping<200) and C2.CYAN or C2.PINK end end end)
 Pages["Perfil"]=PgP
-
+ 
+-- ══════════════════════════════════════
 -- FARM
+-- ══════════════════════════════════════
 local PgF=MkPage("Farm")
-MkSec(PgF,"Auto Farm (Sea 1)",1)
-MkToggle(PgF,"Auto Farm Nivel","Sube nivel automatico con quests (Sea 1)",3,
+MkSec(PgF,"Auto Farm (Sea 1-3)",1)
+MkToggle(PgF,"Auto Farm Nivel","Sube nivel automatico con quests (Sea 1-3)",3,
     function() AutoLevelEnabled=true end,
     function()
         AutoLevelEnabled=false; AutoFarmState="IDLE"; AutoFarmTarget=nil
@@ -973,92 +1221,91 @@ MkToggle(PgF,"Recoleccion de Cofres","Farm de cajas (Beli)",7,
     function() AutoChestEnabled=true end,
     function() AutoChestEnabled=false end)
 MkSlider(PgF,"Velocidad de Traslado","Velocidad de TP del auto farm/cajas",9,120,800,300,20,function(v) AutoTeleportTweenSpeed=v end)
-
+ 
+-- ══════════════════════════════════════
+-- BOSS HUNTER — con selector completo
+-- ══════════════════════════════════════
 MkSec(PgF,"Boss Hunter",11)
-local BossCard=MkBlock(PgF,"Boss Objetivo: "..SelectedBossToFarm.." [Click para cambiar]",13)
-local BossLbl=BossCard:FindFirstChildOfClass("TextLabel")
-local BossBtn=Instance.new("TextButton"); BossBtn.Size=UDim2.fromScale(1,1); BossBtn.BackgroundTransparency=1; BossBtn.Text=""; BossBtn.ZIndex=17; BossBtn.Parent=BossCard
-BossBtn.MouseButton1Click:Connect(function()
-    if #Sea1BossesAuto==0 then return end
-    local idx=1
-    for i,b in ipairs(Sea1BossesAuto) do if b.name==SelectedBossToFarm then idx=i; break end end
-    idx=(idx % #Sea1BossesAuto)+1
-    SelectedBossToFarm=Sea1BossesAuto[idx].name
-    if BossLbl then BossLbl.Text="Boss Objetivo: "..SelectedBossToFarm.." [Click para cambiar]" end
-end)
-MkToggle(PgF,"Auto Farm Boss","Farmea solo el boss seleccionado",15,
+ 
+-- Selector de boss (Sea 1, 2 y 3)
+local bSelectorHeader, bSelectorList = MkBossSelector(PgF, 13)
+ 
+MkToggle(PgF,"Auto Farm Boss","Farmea el boss seleccionado arriba",16,
     function() AutoFarmBossEnabled=true end, function() AutoFarmBossEnabled=false end)
-MkToggle(PgF,"Auto Farm All Bosses","Rota entre jefes automaticamente",17,
+MkToggle(PgF,"Auto Farm All Bosses","Rota entre TODOS los jefes automaticamente",18,
     function() AutoFarmAllBossesEnabled=true; BossCycleIndex=1 end,
     function() AutoFarmAllBossesEnabled=false end)
-
-MkSec(PgF,"Haki",19)
-MkToggle(PgF,"Auto Haki (Buso)","Activa aura automaticamente",21,
+ 
+MkSec(PgF,"Haki",20)
+MkToggle(PgF,"Auto Haki (Buso)","Activa aura automaticamente",22,
     function() AutoBusoEnabled=true end, function() AutoBusoEnabled=false end)
-
-MkSec(PgF,"Progreso",23)
-MkToggle(PgF,"Auto Skills","Usa Z/X/C/V/F durante el farm",25,
+ 
+MkSec(PgF,"Progreso",24)
+MkToggle(PgF,"Auto Skills","Usa Z/X/C/V/F durante el farm",26,
     function() AutoSkillsEnabled=true end, function() AutoSkillsEnabled=false end)
-MkToggle(PgF,"Auto Stats","Reparte puntos automaticamente",27,
+MkToggle(PgF,"Auto Stats","Reparte puntos automaticamente",28,
     function() AutoStatsEnabled=true end, function() AutoStatsEnabled=false end)
-MkToggle(PgF,"Melee Stat","Incluye Melee en Auto Stats",29, function() SetAutoStat("Melee",true) end, function() SetAutoStat("Melee",false) end)
-MkToggle(PgF,"Defense Stat","Incluye Defense en Auto Stats",31, function() SetAutoStat("Defense",true) end, function() SetAutoStat("Defense",false) end)
-MkToggle(PgF,"Sword Stat","Incluye Sword en Auto Stats",33, function() SetAutoStat("Sword",true) end, function() SetAutoStat("Sword",false) end)
-MkToggle(PgF,"Gun Stat","Incluye Gun en Auto Stats",35, function() SetAutoStat("Gun",true) end, function() SetAutoStat("Gun",false) end)
-MkToggle(PgF,"Fruit Stat","Incluye Demon Fruit en Auto Stats",37, function() SetAutoStat("Demon Fruit",true) end, function() SetAutoStat("Demon Fruit",false) end)
-
-MkSec(PgF,"Ataques",39)
-MkToggle(PgF,"Ataque Rapido V3","Instakill al enemigo",41,
+MkToggle(PgF,"Melee Stat","Incluye Melee en Auto Stats",30, function() SetAutoStat("Melee",true) end, function() SetAutoStat("Melee",false) end)
+MkToggle(PgF,"Defense Stat","Incluye Defense en Auto Stats",32, function() SetAutoStat("Defense",true) end, function() SetAutoStat("Defense",false) end)
+MkToggle(PgF,"Sword Stat","Incluye Sword en Auto Stats",34, function() SetAutoStat("Sword",true) end, function() SetAutoStat("Sword",false) end)
+MkToggle(PgF,"Gun Stat","Incluye Gun en Auto Stats",36, function() SetAutoStat("Gun",true) end, function() SetAutoStat("Gun",false) end)
+MkToggle(PgF,"Fruit Stat","Incluye Demon Fruit en Auto Stats",38, function() SetAutoStat("Demon Fruit",true) end, function() SetAutoStat("Demon Fruit",false) end)
+ 
+MkSec(PgF,"Ataques",40)
+MkToggle(PgF,"Ataque Rapido V3","Instakill al enemigo",42,
     function() InstakillActive=true; task.spawn(function() while InstakillActive do
         local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         if hrp then hrp.CFrame=CFrame.new(hrp.Position.X,hrp.Position.Y-1e15,hrp.Position.Z) end; task.wait(0.01) end end) end,
     function() InstakillActive=false end)
-MkToggle(PgF,"Ataque Rapido V2","NPCs, Leviathan, Sea Events",43,
+MkToggle(PgF,"Ataque Rapido V2","NPCs, Leviathan, Sea Events",44,
     function() FastAtkV2=true; StartFastAtkV2() end, function() FastAtkV2=false end)
-MkToggle(PgF,"Ataque Rapido V1","Multi-target rapido",45,
+MkToggle(PgF,"Ataque Rapido V1","Multi-target rapido",46,
     function() FastAtk=true; StartFastAtk() end,
     function() FastAtk=false; if FaConn then FaConn:Disconnect() end end)
-MkSlider(PgF,"Rango Ataque V1","Rango del Ataque Rapido V1",47,100,20000,12000,500,function(v) FastAtkRange=v end)
-MkSlider(PgF,"Rango Ataque V2","Rango del Ataque Rapido V2",49,100,10000,3000,250,function(v) FastAtkV2Range=v end)
-MkSec(PgF,"Frutas",51)
-MkToggle(PgF,"Pain-Pain","Auto click Pain",53,
+MkSlider(PgF,"Rango Ataque V1","Rango del Ataque Rapido V1",48,100,20000,12000,500,function(v) FastAtkRange=v end)
+MkSlider(PgF,"Rango Ataque V2","Rango del Ataque Rapido V2",50,100,10000,3000,250,function(v) FastAtkV2Range=v end)
+ 
+MkSec(PgF,"Frutas",52)
+MkToggle(PgF,"Pain-Pain","Auto click Pain",54,
     function() FruitAtk=true; Fr1=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Pain-Pain"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,0,d.Z),1,true) end) end end end) end,
     function() FruitAtk=false; if Fr1 then task.cancel(Fr1); Fr1=nil end end)
-MkToggle(PgF,"Dragon-Dragon","Auto click Dragon",55,
+MkToggle(PgF,"Dragon-Dragon","Auto click Dragon",56,
     function() FruitAtk=true; Fr12=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Dragon-Dragon"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),1) end) end end end) end,
     function() FruitAtk=false; if Fr12 then task.cancel(Fr12); Fr12=nil end end)
-MkToggle(PgF,"Tiger-Tiger","Auto click Tiger",57,
+MkToggle(PgF,"Tiger-Tiger","Auto click Tiger",58,
     function() FruitAtk=true; Fr166=task.spawn(function() while FruitAtk do task.wait(0.01)
         local _,a,r=GetFrRemote("Tiger-Tiger"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),3) end) end end end) end,
     function() FruitAtk=false; if Fr166 then task.cancel(Fr166); Fr166=nil end end)
-MkToggle(PgF,"T-Rex-T-Rex","Auto click T-Rex",59,
+MkToggle(PgF,"T-Rex-T-Rex","Auto click T-Rex",60,
     function() FruitAtk=true; Fr3=task.spawn(function() while FruitAtk do task.wait(0)
         local _,a,r=GetFrRemote("T-Rex-T-Rex"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),1) end) end end end) end,
     function() FruitAtk=false; if Fr3 then task.cancel(Fr3); Fr3=nil end end)
-MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",61,
+MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",62,
     function() FruitAtk=true; FrConn=task.spawn(function() while FruitAtk do task.wait(0.001)
         local _,a,r=GetFrRemote("Kitsune-Kitsune"); local b=GetNTRoot()
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(d,1,true) end) end end end) end,
     function() FruitAtk=false; if FrConn then task.cancel(FrConn); FrConn=nil end end)
-MkSec(PgF,"Utilidades de Combate",63)
-MkToggle(PgF,"Auto Click","Click izquierdo automatico",65,
+ 
+MkSec(PgF,"Utilidades de Combate",64)
+MkToggle(PgF,"Auto Click","Click izquierdo automatico",66,
     function() AutoClickEnabled=true end, function() AutoClickEnabled=false end)
-MkSlider(PgF,"Delay Click","Tiempo entre clicks",67,1,30,8,1,function(v) AutoClickDelay=v/100 end)
-MkToggle(PgF,"Bring NPC","Trae NPCs cercanos hacia ti",69,
+MkSlider(PgF,"Delay Click","Tiempo entre clicks",68,1,30,8,1,function(v) AutoClickDelay=v/100 end)
+MkToggle(PgF,"Bring NPC","Trae NPCs cercanos hacia ti",70,
     function() BringNPCEnabled=true end, function() BringNPCEnabled=false end)
-MkSlider(PgF,"Rango Bring NPC","Distancia para traer NPCs",71,50,1000,300,25,function(v) BringNPCRange=v end)
-MkSec(PgF,"Movimiento",73)
-MkToggle(PgF,"Infinite Jump","Salta sin limite",75, function() InfJump=true end, function() InfJump=false end)
-MkToggle(PgF,"WalkSpeed","Velocidad personalizada",77, function() _G.WSOn=true end, function() _G.WSOn=false end)
-MkSlider(PgF,"Velocidad","WalkSpeed actual",79,16,500,40,5,function(v) _G.WSVal=v end)
+MkSlider(PgF,"Rango Bring NPC","Distancia para traer NPCs",72,50,1000,300,25,function(v) BringNPCRange=v end)
+ 
+MkSec(PgF,"Movimiento",74)
+MkToggle(PgF,"Infinite Jump","Salta sin limite",76, function() InfJump=true end, function() InfJump=false end)
+MkToggle(PgF,"WalkSpeed","Velocidad personalizada",78, function() _G.WSOn=true end, function() _G.WSOn=false end)
+MkSlider(PgF,"Velocidad","WalkSpeed actual",80,16,500,40,5,function(v) _G.WSVal=v end)
 Pages["Farm"]=PgF
-
+ 
 -- PVP
 local PgV=MkPage("PvP")
 MkSec(PgV,"Aimbot",1)
@@ -1083,7 +1330,7 @@ MkToggle(PgV,"Unbreakable","Atributo invulnerable",25,
         if LP.Character then LP.Character:SetAttribute("UnbreakableAll",true) end end end) end,
     function() _G.Unbreakable=false end)
 Pages["PvP"]=PgV
-
+ 
 -- TP
 local PgTP=MkPage("TP")
 MkSec(PgTP,"Seleccion de Jugador",1)
@@ -1097,7 +1344,7 @@ TpHit.MouseButton1Click:Connect(function()
         local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         local tHRP=t.Character:FindFirstChild("HumanoidRootPart")
         if hrp and tHRP then hrp.CFrame=tHRP.CFrame*CFrame.new(0,0,3) end end end)
-
+ 
 MkToggle(PgTP,"Tween TP","Se mueve hacia el jugador (vel 200)",10,
     function()
         _G.TweenTPOn=true
@@ -1112,14 +1359,14 @@ MkToggle(PgTP,"Tween TP","Se mueve hacia el jugador (vel 200)",10,
                     _G.TwTPActiveTween=TS2:Create(myHRP,TweenInfo.new(time,Enum.EasingStyle.Linear),{CFrame=CFrame.new(tHRP.Position)}); _G.TwTPActiveTween:Play() end end end)
         _G.TwTPConn=TwTPConn end,
     function() _G.TweenTPOn=false; if _G.TwTPConn then _G.TwTPConn:Disconnect() end; if _G.TwTPActiveTween then _G.TwTPActiveTween:Cancel() end end)
-
+ 
 MkToggle(PgTP,"Spectate","Ver camara del jugador seleccionado",12,
     function() _G.SpecOn=true; _G.SpecConn=RS.RenderStepped:Connect(function()
         if _G.SpecOn and SelectedPlayer then local t=P2:FindFirstChild(SelectedPlayer)
             if t and t.Character then workspace.CurrentCamera.CameraSubject=t.Character.Humanoid end end end) end,
     function() _G.SpecOn=false; if _G.SpecConn then _G.SpecConn:Disconnect() end
         if LP.Character then workspace.CurrentCamera.CameraSubject=LP.Character.Humanoid end end)
-
+ 
 MkSec(PgTP,"Rutas",14)
 local BcCard=MkBlock(PgTP,"[Click] TP Barco Embrujado Sea 2",16)
 local BcHit=Instance.new("TextButton"); BcHit.Size=UDim2.fromScale(1,1); BcHit.BackgroundTransparency=1; BcHit.Text=""; BcHit.ZIndex=17; BcHit.Parent=BcCard
@@ -1129,7 +1376,7 @@ local HopCard=MkBlock(PgTP,"[Click] Server Hop",20)
 local HopHit=Instance.new("TextButton"); HopHit.Size=UDim2.fromScale(1,1); HopHit.BackgroundTransparency=1; HopHit.Text=""; HopHit.ZIndex=17; HopHit.Parent=HopCard
 HopHit.MouseButton1Click:Connect(function() task.spawn(ServerHop) end)
 Pages["TP"]=PgTP
-
+ 
 -- SHOP
 local PgSh=MkPage("Shop")
 MkSec(PgSh,"Haki y Compras",1)
@@ -1144,25 +1391,22 @@ MkSec(PgSh,"Sistema",7)
 local RmvCard=MkBlock(PgSh,"[Click] Remove TouchInterest",9)
 local RmvHit=Instance.new("TextButton"); RmvHit.Size=UDim2.fromScale(1,1); RmvHit.BackgroundTransparency=1; RmvHit.Text=""; RmvHit.ZIndex=17; RmvHit.Parent=RmvCard
 RmvHit.MouseButton1Click:Connect(function() for _,d in pairs(game:GetDescendants()) do if d:IsA("TouchTransmitter") then d:Destroy() end end end)
-
 Pages["Shop"]=PgSh
-
+ 
 -- VISUALS
 local PgVis=MkPage("Visuals")
 MkSec(PgVis,"Fast Flags",1)
--- Modo seguro: solo visuales ligeros (sin red/fisicas/scheduler/telemetria).
 local FF={
     ["FFlagDisablePostFx"]="True",
     ["DFFlagTextureQualityOverrideEnabled"]="True"
 }
-
 local function CF(z) return z:gsub("^DFInt",""):gsub("^DFFlag",""):gsub("FString",""):gsub("FLog",""):gsub("^FFlag",""):gsub("^DFint",""):gsub("^FInt","") end
 MkToggle(PgVis,"Fast Flags (Modo Seguro)","Optimiza solo visuales para reducir riesgos",3,
     function() if setfflag then task.spawn(function() for k,v in pairs(FF) do local c=CF(k)
         if not pcall(function() if getfflag(c) then setfflag(c,v) end end) then
             pcall(function() if getfflag(k) then setfflag(k,v) end end) end end end) end end)
 Pages["Visuals"]=PgVis
-
+ 
 -- ══════════════════════════════════════
 -- TABS
 -- ══════════════════════════════════════
@@ -1187,8 +1431,8 @@ for i,key in ipairs(TAB_KEYS) do
     b.MouseLeave:Connect(function() if CurTab~=key then b.TextColor3=C2.DIMTXT end end)
     Tabs[key]=b end
 SetTab("Perfil")
-
--- Drag
+ 
+-- Drag ventana
 local d2,dS2,wS2=false,nil,nil
 TB.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then d2=true;dS2=i.Position;wS2=Win.Position end end)
 TB.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then d2=false end end)
@@ -1209,7 +1453,7 @@ UIS.InputEnded:Connect(function(i)
         DSQDragging=false
     end
 end)
-
+ 
 -- Apagado total
 local function ShutdownAll()
     MasterEnabled=false; AutoSkillEnabled=false; FastAtk=false; FruitAtk=false
@@ -1241,7 +1485,7 @@ local function ShutdownAll()
     table.clear(ESP_Obj)
     if SG2 and SG2.Parent then SG2:Destroy() end
 end
-
+ 
 -- DS toggle HUD
 DSQBtn.MouseButton1Click:Connect(function()
     if DSQMoved then DSQMoved=false; return end
@@ -1250,20 +1494,16 @@ DSQBtn.MouseButton1Click:Connect(function()
     DSQSt.Color=HUDHidden and C2.PINK or C2.CYAN
     DSQLabel.TextColor3=HUDHidden and C2.PINK or C2.CYAN
 end)
-
--- X = apagar todo + destruir hub
+ 
 BtnClose.MouseButton1Click:Connect(function() ShutdownAll() end)
-
--- Entrada
+ 
+-- Entrada animada
 Win.Position=UDim2.new(Win.Position.X.Scale,Win.Position.X.Offset,Win.Position.Y.Scale-0.1,Win.Position.Y.Offset)
 Win.BackgroundTransparency=1
 TS2:Create(Win,TweenInfo.new(0.35,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
     {Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2),BackgroundTransparency=0}):Play()
-
+ 
     end) -- fin Btn click
 end)     -- fin AnimateLoad
 end) -- fin task.spawn
-
-
-
-
+ 
