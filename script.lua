@@ -4,9 +4,15 @@ task.spawn(function()
 -- ══════════════════════════════════════
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local VirtualUser  = game:GetService("VirtualUser")
 local LocalPlayer  = Players.LocalPlayer
 local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
 local HUB_NAME="Divine Systematic"; local HUB_VERSION="v4"; local HUB_SUBTITLE="Blox Fruits Edition"
+
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 local LOAD_STEPS={"Iniciando sistema...","Cargando datos...","Verificando conexion...","Preparando funciones...","Listo."}
 local C={BG=Color3.fromRGB(5,5,16),CYAN=Color3.fromRGB(0,255,255),PINK=Color3.fromRGB(255,0,144),GREEN=Color3.fromRGB(0,255,80),DIM=Color3.fromRGB(0,160,160)}
  
@@ -162,11 +168,26 @@ local function ServerHop()
     if #servers>0 then TPService:TeleportToPlaceInstance(placeId,servers[math.random(1,#servers)],LP) end
 end
  
+local function BuyItem(action, arg1, arg2)
+    if not CommF then return end
+    task.spawn(function()
+        pcall(function()
+            if arg2 then
+                CommF:InvokeServer(action, arg1, arg2)
+            elseif arg1 then
+                CommF:InvokeServer(action, arg1)
+            else
+                CommF:InvokeServer(action)
+            end
+        end)
+    end)
+end
+
 local function BuyKenVision()
     local data=LP:FindFirstChild("Data")
     local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
     if lvl<300 then warn("Necesitas nivel 300 para Ken Haki (Vision).") return end
-    if CommF then pcall(function() CommF:InvokeServer("KenTalk","Buy") end) end
+    BuyItem("KenTalk", "Buy")
 end
  
 -- ══════════════════════════════════════
@@ -314,6 +335,19 @@ local Sea1BossesAuto={
 local function AutoTeleport(cf)
     local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart")
     if not c or not hrp or not cf then return end
+    -- Manejo especial para viajar a zonas de remolino/submarino
+    if cf.Position.X > 50000 and hrp.Position.X < 50000 then
+        local whirlpool = workspace.Map and workspace.Map:FindFirstChild("Whirlpool", true) or workspace:FindFirstChild("Whirlpool", true)
+        local wpPos = whirlpool and ((whirlpool:IsA("Model") and whirlpool:GetModelCFrame().Position) or whirlpool.Position)
+        if wpPos then
+            local dist2D = Vector2.new(hrp.Position.X - wpPos.X, hrp.Position.Z - wpPos.Z).Magnitude
+            if dist2D > 100 then
+                cf = CFrame.new(wpPos.X, math.max(hrp.Position.Y, 150), wpPos.Z)
+            else
+                cf = CFrame.new(wpPos)
+            end
+        end
+    end
     local d=(hrp.Position-cf.Position).Magnitude
     if d<50 then c:PivotTo(cf); return end
     local tw=TS2:Create(hrp,TweenInfo.new(d/AutoTeleportTweenSpeed,Enum.EasingStyle.Linear),{CFrame=cf})
@@ -321,7 +355,13 @@ local function AutoTeleport(cf)
     local nc=RS.Stepped:Connect(function()
         for _,v in ipairs(c:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end
     end)
-    tw:Play(); tw.Completed:Wait(); bv:Destroy(); nc:Disconnect()
+    local startPos=hrp.Position
+    local tpCheck=RS.Stepped:Connect(function()
+        if (hrp.Position-startPos).Magnitude > 3000 then
+            tw:Cancel()
+        end
+    end)
+    tw:Play(); tw.Completed:Wait(); bv:Destroy(); nc:Disconnect(); tpCheck:Disconnect()
 end
  
 local function HasQuestAuto()
@@ -351,6 +391,9 @@ local function GetTargetEnemyNameFromQuestAuto()
     local questText=title.Text; local best=nil; local bestLen=0
     for _,q in ipairs(LevelQuestsAuto) do
         if string.find(string.lower(questText),string.lower(q.name)) and #q.name>bestLen then best=q.name; bestLen=#q.name end
+    end
+    for _,b in ipairs(Sea1BossesAuto) do
+        if string.find(string.lower(questText),string.lower(b.name)) and #b.name>bestLen then best=b.name; bestLen=#b.name end
     end
     local en=workspace:FindFirstChild("Enemies")
     if en then
@@ -492,7 +535,8 @@ local function GetNearest()
 end
  
 local function GetAimTarget()
-    local T,SD=nil,FOV; local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local T=nil; local SD=FOV
+    local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil end
     for _,p in pairs(P2:GetPlayers()) do
         if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -1074,8 +1118,8 @@ local function MkBossSelector(parent, orderBase)
     toggleBtn.Text="▼ VER"; toggleBtn.TextColor3=C2.CYAN; toggleBtn.Font=Enum.Font.Code; toggleBtn.TextSize=9
     toggleBtn.AutoButtonColor=false; toggleBtn.ZIndex=15; toggleBtn.Parent=headerCard
     Instance.new("UICorner",toggleBtn).CornerRadius=UDim.new(0,4)
-    Instance.new("UIStroke",toggleBtn).Color=C2.CYAN
- 
+    local toggleStroke=Instance.new("UIStroke"); toggleStroke.Color=C2.CYAN; toggleStroke.Parent=toggleBtn
+
     -- Panel de lista (scrollable, con separadores por mar)
     local listWrap=Instance.new("Frame"); listWrap.Size=UDim2.new(1,0,0,0)
     listWrap.AutomaticSize=Enum.AutomaticSize.Y; listWrap.BackgroundColor3=Color3.fromRGB(0,9,9)
@@ -1157,9 +1201,7 @@ local function MkBossSelector(parent, orderBase)
         listWrap.Visible=listOpen
         toggleBtn.Text=listOpen and "▲ OCL" or "▼ VER"
         toggleBtn.TextColor3=listOpen and C2.PINK or C2.CYAN
-        local st=Instance.new("UIStroke"); st.Color=listOpen and C2.PINK or C2.CYAN
-        -- reemplazar stroke del boton
-        for _,ch in ipairs(toggleBtn:GetChildren()) do if ch:IsA("UIStroke") then ch.Color=listOpen and C2.PINK or C2.CYAN end end
+        toggleStroke.Color=listOpen and C2.PINK or C2.CYAN
     end)
  
     return headerCard, listWrap
