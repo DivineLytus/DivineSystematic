@@ -105,6 +105,7 @@ local AutoBusoEnabled=false
 local AutoClickEnabled=false; local AutoClickDelay=0.08
 local BringNPCEnabled=false; local BringNPCRange=300
 local AutoFarmNearestEnabled=false; local AutoFarmBossEnabled=false; local AutoFarmAllBossesEnabled=false
+local AutoSea3Enabled=false
 local AutoStatsEnabled=false; local AutoSkillsEnabled=false
 local ActiveStats={}
  
@@ -123,7 +124,10 @@ local SelectedBossToFarm="Gorilla King"; local BossCycleIndex=1
 -- Referencia global al label del selector de boss (se asigna al construir la UI)
 local BossSelectedLbl=nil
  
-local SPECIAL={"Leviathan","Tail","Segment","Tongue","Sea Beast","TerrorShark","Piranha","Ghost Ship","Fishman","Boss"}
+local SPECIAL={"Leviathan","Tail","Segment","Tongue","Sea Beast","SeaBeast","TerrorShark","Terrorshark","TerrorsharkLv","Piranha","Ghost Ship","GhostShip","Fishman","Boss",
+    "Shark","FishBoat","RumblingWaters","GhostPirate","GhostCaptain","PirateBrigade","ShipRaiders",
+    "BasicBoat","Caravel","Brigade","Sentinel","GrandBrigade","SeaDanger","MirageIsland","KitsuneIsland",
+    "FrozenDimension","PrehistoricIsland"}
  
 local RegHit,RegAtk
 pcall(function()
@@ -414,25 +418,75 @@ local function IsEnemyAliveAuto(enemyName)
     return false
 end
  
-local function GetBestQuestDataAuto()
-    local data=LP:FindFirstChild("Data")
-    local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
-    local best=LevelQuestsAuto[1]
-    for i=1,#LevelQuestsAuto do
-        local q=LevelQuestsAuto[i]
-        if lvl>=q.lvl then
-            if q.isBoss then if IsEnemyAliveAuto(q.name) then best=q end
-            else best=q end
-        else break end
-    end
-    return best
+local function NormalizeSearchName(str)
+    return string.lower(tostring(str)):gsub("%s+", ""):gsub("[^%w]", "")
 end
- 
-local function GetIslandPositionAuto(keyword)
+
+local function FindMapLocation(keyword)
+    if not keyword or keyword=="" then return nil end
+    local lowerKey=string.lower(keyword)
     local wo=workspace:FindFirstChild("_WorldOrigin")
     local locs=wo and wo:FindFirstChild("Locations")
-    if not locs then return nil end
-    for _,v in ipairs(locs:GetChildren()) do if string.find(string.lower(v.Name),string.lower(keyword)) then return v.Position end end
+    if locs then
+        for _,v in ipairs(locs:GetChildren()) do
+            if string.find(string.lower(v.Name),lowerKey) then
+                if v:IsA("BasePart") then return v.Position end
+                if v:IsA("Model") then
+                    if v.PrimaryPart then return v.PrimaryPart.Position end
+                    local part=v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("PrimaryPart") or v:FindFirstChild("UpperTorso")
+                    if part and part:IsA("BasePart") then return part.Position end
+                end
+            end
+        end
+    end
+    local mapRoot=workspace:FindFirstChild("Map")
+    if mapRoot then
+        local cleanedKey=NormalizeSearchName(keyword)
+        local exact=mapRoot:FindFirstChild(keyword) or mapRoot:FindFirstChild(keyword:gsub("%s+","")) or mapRoot:FindFirstChild(cleanedKey)
+        if exact then
+            if exact:IsA("BasePart") then return exact.Position end
+            if exact:IsA("Model") and exact.PrimaryPart then return exact.PrimaryPart.Position end
+            local part=exact:FindFirstChild("HumanoidRootPart") or exact:FindFirstChild("PrimaryPart") or exact:FindFirstChild("UpperTorso")
+            if part and part:IsA("BasePart") then return part.Position end
+        end
+        for _,v in ipairs(mapRoot:GetDescendants()) do
+            if v:IsA("BasePart") then
+                if string.find(string.lower(v.Name),lowerKey) then return v.Position end
+            elseif v:IsA("Model") then
+                if string.find(string.lower(v.Name),lowerKey) then
+                    local part=v.PrimaryPart or v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("PrimaryPart") or v:FindFirstChild("UpperTorso")
+                    if part and part:IsA("BasePart") then return part.Position end
+                end
+            end
+        end
+    end
+    local function scanRoot(root)
+        if not root then return nil end
+        for _,v in ipairs(root:GetDescendants()) do
+            if v:IsA("BasePart") then
+                if string.find(string.lower(v.Name),lowerKey) then return v.Position end
+            elseif v:IsA("Model") then
+                if string.find(string.lower(v.Name),lowerKey) then
+                    local part=v.PrimaryPart or v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("PrimaryPart") or v:FindFirstChild("UpperTorso")
+                    if part and part:IsA("BasePart") then return part.Position end
+                end
+            end
+        end
+        return nil
+    end
+    local extraRoots={workspace:FindFirstChild("SeaBeasts"), workspace:FindFirstChild("Boats"), workspace:FindFirstChild("Events"), workspace:FindFirstChild("Enemies"), workspace:FindFirstChild("NPCs")}
+    for _,root in ipairs(extraRoots) do
+        local pos = scanRoot(root)
+        if pos then return pos end
+    end
+    return nil
+end
+
+local function GetIslandPositionAuto(keyword)
+    local pos = FindMapLocation(keyword)
+    if pos then
+        return pos + Vector3.new(0, 100, 0)
+    end
     return nil
 end
  
@@ -451,6 +505,33 @@ local function GetEnemySpawnPositionAuto(enemyName)
         end
         if best then CachedSpawnsAuto[enemyName]=best; return best end
     end
+    local mapRoot=workspace:FindFirstChild("Map")
+    if mapRoot then
+        local best=nil; local diffBest=math.huge
+        for _,v in ipairs(mapRoot:GetDescendants()) do
+            if v:IsA("BasePart") and string.find(string.lower(v.Name),string.lower(enemyName)) and v.Position.Y>0 then
+                local diff=math.abs(#v.Name-#enemyName)
+                if diff<diffBest then diffBest=diff; best=v.Position end
+            end
+        end
+        if best then CachedSpawnsAuto[enemyName]=best; return best end
+    end
+    local function searchRoot(root)
+        if not root then return nil end
+        local best=nil; local diffBest=math.huge
+        for _,v in ipairs(root:GetDescendants()) do
+            if v:IsA("BasePart") and string.find(string.lower(v.Name),string.lower(enemyName)) and v.Position.Y>0 then
+                local diff=math.abs(#v.Name-#enemyName)
+                if diff<diffBest then diffBest=diff; best=v.Position end
+            end
+        end
+        return best
+    end
+    for _,rootName in ipairs({"SeaBeasts","Boats","Events"}) do
+        local root=workspace:FindFirstChild(rootName)
+        local pos=searchRoot(root)
+        if pos then CachedSpawnsAuto[enemyName]=pos; return pos end
+    end
     local en=workspace:FindFirstChild("Enemies")
     if en then
         for _,npc in ipairs(en:GetChildren()) do
@@ -467,12 +548,16 @@ local function GetQuestGiverPositionAuto(qData)
     if not qData or not qData.giver then return nil end
     local npcs=workspace:FindFirstChild("NPCs"); if not npcs then return nil end
     local spawnPos=GetEnemySpawnPositionAuto(qData.name) or GetIslandPositionAuto(qData.island)
+    local searchGiver=NormalizeSearchName(qData.giver)
     local best=nil; local minDist=math.huge
     for _,npc in ipairs(npcs:GetChildren()) do
         local hrp=npc:FindFirstChild("HumanoidRootPart")
-        if hrp and string.find(string.lower(npc.Name),string.lower(qData.giver)) then
-            local d=spawnPos and (hrp.Position-spawnPos).Magnitude or 0
-            if d<minDist then minDist=d; best=hrp.CFrame end
+        if hrp then
+            local npcName=NormalizeSearchName(npc.Name)
+            if npcName==searchGiver or string.find(npcName,searchGiver) or string.find(searchGiver,npcName) then
+                local d=spawnPos and (hrp.Position-spawnPos).Magnitude or 0
+                if d<minDist then minDist=d; best=hrp.CFrame end
+            end
         end
     end
     return best
@@ -485,6 +570,18 @@ local function GatherTargetsAuto(myHRP,targetName,maxR)
         local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
         if hm and hrp and hm.Health>0 and MatchEnemyNameAuto(npc.Name,targetName) and (hrp.Position-myHRP.Position).Magnitude<=maxR then
             table.insert(t,{npc,npc:FindFirstChild("Head") or hrp}); if #t>=8 then break end
+        end
+    end
+    return t
+end
+ 
+local function GatherAllTargets(myHRP,maxR)
+    local t={}; local en=workspace:FindFirstChild("Enemies")
+    if not en or not myHRP then return t end
+    for _,npc in ipairs(en:GetChildren()) do
+        local hm=npc:FindFirstChildOfClass("Humanoid"); local hrp=npc:FindFirstChild("HumanoidRootPart")
+        if hm and hrp and hm.Health>0 and (hrp.Position-myHRP.Position).Magnitude<=maxR then
+            table.insert(t,{npc,npc:FindFirstChild("Head") or hrp}); if #t>=20 then break end
         end
     end
     return t
@@ -650,9 +747,14 @@ end)
  
 task.spawn(function()
     while true do
-        task.wait(math.max(0.01,AutoClickDelay))
+        task.wait(math.max(0,AutoClickDelay))
         if AutoClickEnabled then
             pcall(function()
+                local c=LP.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local targets=GatherAllTargets(hrp,FastAtkRange)
+                    if #targets>0 then FireAtk(targets) end
+                end
                 VIM:SendMouseButtonEvent(0,0,0,true,game,0)
                 task.wait(0.01)
                 VIM:SendMouseButtonEvent(0,0,0,false,game,0)
@@ -685,7 +787,12 @@ task.spawn(function()
             -- Anular toda fisica
             hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
             hrp.AssemblyAngularVelocity=Vector3.new(0,0,0)
-            hrp.CanCollide=false
+            for _,part in ipairs(npc:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide=false; part.AssemblyLinearVelocity=Vector3.new(0,0,0)
+                    part.AssemblyAngularVelocity=Vector3.new(0,0,0)
+                end
+            end
             -- Desactivar IA de movimiento
             hm.WalkSpeed=0; hm.JumpPower=0; hm.PlatformStand=true
             -- Eliminar BodyMovers internos del NPC
@@ -767,6 +874,8 @@ task.spawn(function()
                             local oHrp=npc:FindFirstChild("HumanoidRootPart"); local oHm=npc:FindFirstChildOfClass("Humanoid")
                             if oHrp and oHm and oHm.Health>0 and (oHrp.Position-pullCF.Position).Magnitude<AutoFarmPullRadius then
                                 oHrp.CFrame=pullCF; oHrp.CanCollide=false; oHrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+                                oHrp.AssemblyAngularVelocity=Vector3.new(0,0,0)
+                                for _,part in ipairs(npc:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide=false; part.AssemblyLinearVelocity=Vector3.new(0,0,0); part.AssemblyAngularVelocity=Vector3.new(0,0,0) end end
                                 oHm.WalkSpeed=0; oHm.JumpPower=0
                             end
                         end
@@ -785,6 +894,35 @@ task.spawn(function()
                 else hrp.CFrame=hoverCF*CFrame.new(0,3.5,0) end
                 hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
             end
+        end
+    end
+end)
+ 
+-- ══════════════════════════════════════
+-- AUTO SEA2->SEA3
+local function GetSea3TravelPosition()
+    local pos = GetIslandPositionAuto("Colosseum") or GetIslandPositionAuto("Green Zone") or GetIslandPositionAuto("Kingdom")
+    return pos and CFrame.new(pos + Vector3.new(0,30,0)) or nil
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if not AutoSea3Enabled then continue end
+        local data=LP:FindFirstChild("Data")
+        local lvl=data and data:FindFirstChild("Level") and data.Level.Value or 1
+        if lvl < 1500 then continue end
+        if HasQuestAuto() then
+            local target=GetTargetEnemyNameFromQuestAuto()
+            if target then
+                local spawn=GetEnemySpawnPositionAuto(target) or GetIslandPositionAuto("Colosseum") or GetIslandPositionAuto("Green Zone")
+                if spawn then AutoTeleport(CFrame.new(spawn + Vector3.new(0,30,0))) end
+            else
+                local travel=GetSea3TravelPosition()
+                if travel then AutoTeleport(travel) end
+            end
+        else
+            local travel=GetSea3TravelPosition()
+            if travel then AutoTeleport(travel) end
         end
     end
 end)
@@ -1337,15 +1475,17 @@ MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",62,
 MkSec(PgF,"Utilidades de Combate",64)
 MkToggle(PgF,"Auto Click","Click izquierdo automatico",66,
     function() AutoClickEnabled=true end, function() AutoClickEnabled=false end)
-MkSlider(PgF,"Delay Click","Tiempo entre clicks",68,1,30,8,1,function(v) AutoClickDelay=v/100 end)
-MkToggle(PgF,"Bring NPC","Trae NPCs cercanos hacia ti",70,
+MkSlider(PgF,"Delay Click","Tiempo entre clicks (0 = instantáneo)",68,0,30,8,1,function(v) AutoClickDelay=v/100 end)
+MkToggle(PgF,"Auto Sea2->Sea3","Persigue la progresión hacia el Tercer Mar",70,
+    function() AutoSea3Enabled=true end, function() AutoSea3Enabled=false end)
+MkToggle(PgF,"Bring NPC","Trae NPCs cercanos hacia ti",72,
     function() BringNPCEnabled=true end, function() BringNPCEnabled=false end)
-MkSlider(PgF,"Rango Bring NPC","Distancia para traer NPCs",72,50,1000,300,25,function(v) BringNPCRange=v end)
+MkSlider(PgF,"Rango Bring NPC","Distancia para traer NPCs",74,50,1000,300,25,function(v) BringNPCRange=v end)
  
-MkSec(PgF,"Movimiento",74)
-MkToggle(PgF,"Infinite Jump","Salta sin limite",76, function() InfJump=true end, function() InfJump=false end)
-MkToggle(PgF,"WalkSpeed","Velocidad personalizada",78, function() _G.WSOn=true end, function() _G.WSOn=false end)
-MkSlider(PgF,"Velocidad","WalkSpeed actual",80,16,500,40,5,function(v) _G.WSVal=v end)
+MkSec(PgF,"Movimiento",76)
+MkToggle(PgF,"Infinite Jump","Salta sin limite",78, function() InfJump=true end, function() InfJump=false end)
+MkToggle(PgF,"WalkSpeed","Velocidad personalizada",80, function() _G.WSOn=true end, function() _G.WSOn=false end)
+MkSlider(PgF,"Velocidad","WalkSpeed actual",82,16,500,40,5,function(v) _G.WSVal=v end)
 Pages["Farm"]=PgF
  
 -- PVP
