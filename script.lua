@@ -1462,10 +1462,63 @@ MkToggle(PgF,"Tiger-Tiger","Auto click Tiger",58,
         if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),3) end) end end end) end,
     function() FruitAtk=false; if Fr166 then task.cancel(Fr166); Fr166=nil end end)
 MkToggle(PgF,"T-Rex-T-Rex","Auto click T-Rex",60,
-    function() FruitAtk=true; Fr3=task.spawn(function() while FruitAtk do task.wait(0)
-        local _,a,r=GetFrRemote("T-Rex-T-Rex"); local b=GetNTRoot()
-        if a and b and r then local d=(b.Position-a.Position).Unit; pcall(function() r:FireServer(MkVec(d.X,d.Y,d.Z),1) end) end end end) end,
-    function() FruitAtk=false; if Fr3 then task.cancel(Fr3); Fr3=nil end end)
+    function()
+        FruitAtk=true
+        -- Caches locales: evitan búsquedas costosas cada frame
+        local cachedRemote   = nil
+        local cachedTargetHRP= nil
+        local cachedMyHRP    = nil
+        local lastTargetRefresh = 0
+        local lastRemoteRefresh = 0
+        local REMOTE_TTL = 1.5   -- refrescar remote solo cada 1.5s
+        local TARGET_TTL = 0.12  -- refrescar target cada 120ms
+
+        -- Heartbeat en vez de task.wait(0): dispara cada physics step
+        -- sin overhead del scheduler de coroutines
+        Fr3=RS.Heartbeat:Connect(function()
+            if not FruitAtk then return end
+            local now=tick()
+
+            -- HRP propio: solo re-buscar si cambio el personaje
+            if not cachedMyHRP or not cachedMyHRP.Parent then
+                local c=LP.Character
+                cachedMyHRP=c and c:FindFirstChild("HumanoidRootPart")
+            end
+            if not cachedMyHRP then return end
+
+            -- Remote: re-buscar si se perdio o vencio el TTL
+            if not cachedRemote or not cachedRemote.Parent or (now-lastRemoteRefresh)>REMOTE_TTL then
+                local _,_,r=GetFrRemote("T-Rex-T-Rex")
+                cachedRemote=r
+                lastRemoteRefresh=now
+            end
+            if not cachedRemote then return end
+
+            -- Target: re-buscar con intervalo para no iterar jugadores cada frame
+            if (now-lastTargetRefresh)>TARGET_TTL then
+                cachedTargetHRP=GetNTRoot()
+                lastTargetRefresh=now
+            end
+            if not cachedTargetHRP or not cachedTargetHRP.Parent then return end
+
+            -- Calcular direccion y disparar
+            -- pcall sin closure anonima: evita crear un objeto function cada frame
+            local diff=cachedTargetHRP.Position-cachedMyHRP.Position
+            local mag=diff.Magnitude
+            if mag==0 then return end
+            local dir=diff/mag
+            pcall(cachedRemote.FireServer, cachedRemote, MkVec(dir.X,dir.Y,dir.Z), 1)
+        end)
+    end,
+    function()
+        FruitAtk=false
+        if Fr3 then
+            -- Soporta tanto RBXScriptConnection (nuevo) como thread (por si acaso)
+            if typeof(Fr3)=="RBXScriptConnection" then Fr3:Disconnect()
+            else pcall(task.cancel,Fr3) end
+            Fr3=nil
+        end
+    end)
 MkToggle(PgF,"Kitsune-Kitsune","Auto click Kitsune",62,
     function() FruitAtk=true; FrConn=task.spawn(function() while FruitAtk do task.wait(0.001)
         local _,a,r=GetFrRemote("Kitsune-Kitsune"); local b=GetNTRoot()
